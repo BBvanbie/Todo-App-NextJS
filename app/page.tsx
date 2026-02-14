@@ -3,15 +3,53 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
+type TodoCategory =
+  | "WORK"
+  | "PRIVATE"
+  | "PROCEDURE"
+  | "STUDY"
+  | "HEALTH"
+  | "SHOPPING"
+  | "OTHER";
+
+type TodoPriority = "HIGH" | "MEDIUM" | "LOW";
+
 type Todo = {
   id: number;
   title: string;
+  memo: string | null;
+  category: TodoCategory;
+  priority: TodoPriority;
   completed: boolean;
   dueAt: string;
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
+
+const CATEGORY_LABEL: Record<TodoCategory, string> = {
+  WORK: "Work",
+  PRIVATE: "Private",
+  PROCEDURE: "Procedure",
+  STUDY: "Study",
+  HEALTH: "Health",
+  SHOPPING: "Shopping",
+  OTHER: "Other",
+};
+
+const PRIORITY_LABEL: Record<TodoPriority, string> = {
+  HIGH: "High",
+  MEDIUM: "Medium",
+  LOW: "Low",
+};
+
+function formatDate(isoString: string) {
+  return new Intl.DateTimeFormat("ja-JP", {
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+  }).format(new Date(isoString));
+}
 
 function toDateInputValue(isoString: string) {
   const date = new Date(isoString);
@@ -25,15 +63,7 @@ function toIsoAtNoon(localDateInput: string) {
   return new Date(`${localDateInput}T12:00:00`).toISOString();
 }
 
-function formatDate(isoString: string) {
-  return new Intl.DateTimeFormat("ja-JP", {
-    month: "2-digit",
-    day: "2-digit",
-    weekday: "short",
-  }).format(new Date(isoString));
-}
-
-function getDueStatus(isoString: string) {
+function getDueStatus(isoString: string): "ok" | "warning" | "danger" {
   const due = new Date(isoString);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -46,17 +76,22 @@ function getDueStatus(isoString: string) {
   return "ok";
 }
 
+function getCardTone(status: "ok" | "warning" | "danger") {
+  if (status === "danger") return "border-[#f1a6ae] bg-[#ffeef0]";
+  if (status === "warning") return "border-[#ffd18f] bg-[#fff6e9]";
+  return "border-[#d7e1ee] bg-white/90";
+}
+
 export default function Home() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [newTitle, setNewTitle] = useState("");
-  const [newDueDate, setNewDueDate] = useState("");
-  const [saving, setSaving] = useState(false);
-
   const [editing, setEditing] = useState<Todo | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [editMemo, setEditMemo] = useState("");
+  const [editCategory, setEditCategory] = useState<TodoCategory>("OTHER");
+  const [editPriority, setEditPriority] = useState<TodoPriority>("MEDIUM");
   const [editDueDate, setEditDueDate] = useState("");
   const [editSaving, setEditSaving] = useState(false);
 
@@ -68,27 +103,23 @@ export default function Home() {
     const fetchTodos = async () => {
       setLoading(true);
       setError(null);
-
       try {
         const res = await fetch("/api/todos", { cache: "no-store" });
-        if (!res.ok) throw new Error("Todoの取得に失敗しました。");
+        if (!res.ok) throw new Error();
         const data = (await res.json()) as Todo[];
         setTodos(data);
       } catch {
-        setError("Todoの取得に失敗しました。");
+        setError("Failed to fetch todos.");
       } finally {
         setLoading(false);
       }
     };
-
     void fetchTodos();
   }, []);
 
   useEffect(() => {
     return () => {
-      if (congratsTimerRef.current) {
-        window.clearTimeout(congratsTimerRef.current);
-      }
+      if (congratsTimerRef.current) window.clearTimeout(congratsTimerRef.current);
     };
   }, []);
 
@@ -104,7 +135,7 @@ export default function Home() {
     [todos],
   );
 
-  const completedActiveTodos = useMemo(
+  const completedTodos = useMemo(
     () =>
       todos
         .filter((todo) => todo.completed)
@@ -113,11 +144,6 @@ export default function Home() {
             new Date(b.completedAt ?? b.updatedAt).getTime() -
             new Date(a.completedAt ?? a.updatedAt).getTime(),
         ),
-    [todos],
-  );
-
-  const completedCount = useMemo(
-    () => todos.filter((todo) => todo.completed).length,
     [todos],
   );
 
@@ -130,54 +156,6 @@ export default function Home() {
     setShowCongrats(true);
     if (congratsTimerRef.current) window.clearTimeout(congratsTimerRef.current);
     congratsTimerRef.current = window.setTimeout(() => setShowCongrats(false), 1800);
-  };
-
-  const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!newTitle.trim()) return setError("タイトルは必須です。");
-    if (!newDueDate) return setError("期限は必須です。");
-
-    setError(null);
-    setSaving(true);
-
-    const optimisticId = -Date.now();
-    const dueAt = toIsoAtNoon(newDueDate);
-
-    const optimisticTodo: Todo = {
-      id: optimisticId,
-      title: newTitle.trim(),
-      completed: false,
-      dueAt,
-      completedAt: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    setTodos((prev) => [...prev, optimisticTodo]);
-    setNewTitle("");
-    setNewDueDate("");
-
-    try {
-      const res = await fetch("/api/todos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: optimisticTodo.title,
-          dueAt,
-        }),
-      });
-
-      if (!res.ok) throw new Error();
-      const saved = (await res.json()) as Todo;
-      setTodos((prev) => prev.map((todo) => (todo.id === optimisticId ? saved : todo)));
-    } catch {
-      setTodos((prev) => prev.filter((todo) => todo.id !== optimisticId));
-      setError("追加に失敗しました。");
-      setNewTitle(optimisticTodo.title);
-      setNewDueDate(newDueDate);
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleToggle = async (todo: Todo) => {
@@ -204,14 +182,13 @@ export default function Home() {
       setTodos((prev) => prev.map((item) => (item.id === todo.id ? saved : item)));
     } catch {
       setTodos((prev) => prev.map((item) => (item.id === todo.id ? previous : item)));
-      setError("状態更新に失敗しました。");
+      setError("Failed to update status.");
     }
   };
 
   const handleDelete = async (todo: Todo) => {
-    if (!window.confirm(`"${todo.title}" を削除しますか？`)) return;
-    const previous = todo;
-
+    if (!window.confirm(`Delete "${todo.title}"?`)) return;
+    const backup = todo;
     setTodos((prev) => prev.filter((item) => item.id !== todo.id));
     setError(null);
 
@@ -219,14 +196,17 @@ export default function Home() {
       const res = await fetch(`/api/todos/${todo.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
     } catch {
-      setTodos((prev) => [...prev, previous]);
-      setError("削除に失敗しました。");
+      setTodos((prev) => [...prev, backup]);
+      setError("Failed to delete.");
     }
   };
 
   const openEdit = (todo: Todo) => {
     setEditing(todo);
     setEditTitle(todo.title);
+    setEditMemo(todo.memo ?? "");
+    setEditCategory(todo.category);
+    setEditPriority(todo.priority);
     setEditDueDate(toDateInputValue(todo.dueAt));
     setError(null);
   };
@@ -234,6 +214,9 @@ export default function Home() {
   const closeEdit = () => {
     setEditing(null);
     setEditTitle("");
+    setEditMemo("");
+    setEditCategory("OTHER");
+    setEditPriority("MEDIUM");
     setEditDueDate("");
     setEditSaving(false);
   };
@@ -241,18 +224,20 @@ export default function Home() {
   const handleEdit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!editing) return;
-    if (!editTitle.trim()) return setError("タイトルは必須です。");
-    if (!editDueDate) return setError("期限は必須です。");
+    if (!editTitle.trim()) return setError("Title is required.");
+    if (!editDueDate) return setError("Due date is required.");
 
     setError(null);
     setEditSaving(true);
-
+    const dueAt = toIsoAtNoon(editDueDate);
     const previous = editing;
-    const optimisticDueAt = toIsoAtNoon(editDueDate);
     const optimistic: Todo = {
       ...editing,
       title: editTitle.trim(),
-      dueAt: optimisticDueAt,
+      memo: editMemo.trim() || null,
+      category: editCategory,
+      priority: editPriority,
+      dueAt,
       updatedAt: new Date().toISOString(),
     };
 
@@ -264,18 +249,20 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: optimistic.title,
-          dueAt: optimisticDueAt,
+          memo: optimistic.memo,
+          category: optimistic.category,
+          priority: optimistic.priority,
+          dueAt,
         }),
       });
-
       if (!res.ok) throw new Error();
       const saved = (await res.json()) as Todo;
       setTodos((prev) => prev.map((todo) => (todo.id === editing.id ? saved : todo)));
       closeEdit();
     } catch {
       setTodos((prev) => prev.map((todo) => (todo.id === editing.id ? previous : todo)));
-      setError("編集に失敗しました。");
       setEditSaving(false);
+      setError("Failed to update todo.");
     }
   };
 
@@ -290,21 +277,8 @@ export default function Home() {
           role="status"
           aria-live="polite"
         >
-          <p className="text-xl font-bold tracking-tight text-[#0a6f4f]">
-            congratulation
-          </p>
-          <p className="text-sm text-[#1f7f61]">くす玉 + クラッカー 🎊🎉</p>
-          <div className="pointer-events-none absolute inset-x-0 top-1">
-            {Array.from({ length: 12 }).map((_, index) => (
-              <span
-                key={index}
-                className="confetti absolute text-sm"
-                style={{ left: `${6 + index * 8}%`, animationDelay: `${index * 20}ms` }}
-              >
-                {index % 2 === 0 ? "✨" : "🎉"}
-              </span>
-            ))}
-          </div>
+          <p className="text-xl font-bold tracking-tight text-[#0a6f4f]">congratulation</p>
+          <p className="text-sm text-[#1f7f61]">Great job, task completed.</p>
         </div>
       )}
 
@@ -315,178 +289,142 @@ export default function Home() {
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#2f5f95]">
                 Task Radar
               </p>
-              <h1 className="mt-1 text-3xl font-bold tracking-tight text-[#0f1f35]">
-                Next Todos Dashboard
-              </h1>
+              <h1 className="mt-1 text-3xl font-bold tracking-tight text-[#0f1f35]">Next Todos</h1>
               <p className="mt-2 text-sm text-muted">
-                期限が近い順で、今やるべきタスクを上から表示します。
+                Pending tasks are sorted by nearest due date.
               </p>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-sm md:min-w-[280px]">
-              <div className="rounded-xl bg-[#edf5ff] p-3 text-center">
-                <p className="text-xs text-[#4f6e94]">未完了</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="rounded-xl bg-[#edf5ff] px-4 py-2 text-center">
+                <p className="text-xs text-[#4f6e94]">Pending</p>
                 <p className="text-lg font-bold text-[#0b4ea7]">{pendingTodos.length}</p>
               </div>
-              <div className="rounded-xl bg-[#fff3e3] p-3 text-center">
-                <p className="text-xs text-[#8c5a14]">期限切れ</p>
+              <div className="rounded-xl bg-[#fff3e3] px-4 py-2 text-center">
+                <p className="text-xs text-[#8c5a14]">Overdue</p>
                 <p className="text-lg font-bold text-[#b94d00]">{overdueCount}</p>
               </div>
-              <div className="rounded-xl bg-[#e8fff6] p-3 text-center">
-                <p className="text-xs text-[#2d7160]">完了総数</p>
-                <p className="text-lg font-bold text-[#127656]">{completedCount}</p>
+              <div className="rounded-xl bg-[#e8fff6] px-4 py-2 text-center">
+                <p className="text-xs text-[#2d7160]">Completed</p>
+                <p className="text-lg font-bold text-[#127656]">{completedTodos.length}</p>
               </div>
+              <Link
+                href="/tasks/new"
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:brightness-110"
+              >
+                Add Task
+              </Link>
             </div>
           </div>
-        </section>
-
-        <section className="mt-5 grid gap-5 lg:grid-cols-[1.3fr_2fr]">
-          <form onSubmit={handleCreate} className="glass-card rounded-3xl p-5">
-            <h2 className="text-lg font-semibold text-[#12325a]">タスク登録</h2>
-            <div className="mt-4 space-y-3">
-              <label className="block text-sm text-muted" htmlFor="title">
-                タイトル
-              </label>
-              <input
-                id="title"
-                value={newTitle}
-                onChange={(event) => setNewTitle(event.target.value)}
-                placeholder="例: 見積もり送付"
-                className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-4"
-              />
-              <label className="block text-sm text-muted" htmlFor="dueAt">
-                期限（日付のみ）
-              </label>
-              <input
-                id="dueAt"
-                type="date"
-                value={newDueDate}
-                onChange={(event) => setNewDueDate(event.target.value)}
-                className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-4"
-              />
-              <button
-                type="submit"
-                disabled={saving}
-                className="mt-2 w-full rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {saving ? "登録中..." : "タスクを追加"}
-              </button>
-            </div>
-          </form>
-
-          <section className="glass-card rounded-3xl p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[#12325a]">未完了タスク</h2>
-              <span className="rounded-full bg-[#edf5ff] px-3 py-1 text-xs font-semibold text-[#1157b2]">
-                期限が近い順
-              </span>
-            </div>
-
-            {loading ? (
-              <p className="py-8 text-sm text-muted">読み込み中...</p>
-            ) : pendingTodos.length === 0 ? (
-              <p className="py-8 text-sm text-muted">未完了タスクはありません。</p>
-            ) : (
-              <ul className="space-y-3">
-                {pendingTodos.map((todo) => {
-                  const status = getDueStatus(todo.dueAt);
-                  const cardTone =
-                    status === "danger"
-                      ? "border-[#ef9ca7] bg-[#ffecee]"
-                      : status === "warning"
-                        ? "border-[#ffc882] bg-[#fff5e8]"
-                        : "border-[#d7e1ee] bg-white/90";
-
-                  return (
-                    <li
-                      key={todo.id}
-                      className={`rounded-2xl border p-3 shadow-[0_8px_20px_-20px_#0d315f] ${cardTone}`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <button
-                          type="button"
-                          onClick={() => void handleToggle(todo)}
-                          className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[#9fb5cd] text-[#2f5f95] transition hover:bg-[#eaf2fc]"
-                          aria-label={`${todo.title}を完了にする`}
-                        >
-                          ✓
-                        </button>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-[#17355f]">
-                            {todo.title}
-                          </p>
-                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                            <span className="rounded-full bg-[#edf3fa] px-2 py-0.5 text-[#4e6785]">
-                              期限: {formatDate(todo.dueAt)}
-                            </span>
-                            {status === "warning" && (
-                              <span className="badge-status-warning rounded-full px-2 py-0.5">
-                                注意
-                              </span>
-                            )}
-                            {status === "danger" && (
-                              <span className="badge-status-danger rounded-full px-2 py-0.5">
-                                警告
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 gap-1">
-                          <button
-                            type="button"
-                            onClick={() => openEdit(todo)}
-                            className="rounded-lg border border-[#c9d7e7] px-2 py-1 text-xs text-[#2d4f7d] hover:bg-[#edf5ff]"
-                          >
-                            編集
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleDelete(todo)}
-                            className="rounded-lg border border-[#f1c7cd] px-2 py-1 text-xs text-[#a2202d] hover:bg-[#fff0f3]"
-                          >
-                            削除
-                          </button>
-                        </div>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
         </section>
 
         <section className="mt-5 glass-card rounded-3xl p-5">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-[#12325a]">完了タスク（7日以内）</h2>
+            <h2 className="text-lg font-semibold text-[#12325a]">Pending Tasks</h2>
+            <span className="rounded-full bg-[#edf5ff] px-3 py-1 text-xs font-semibold text-[#1157b2]">
+              Nearest due first
+            </span>
+          </div>
+
+          {loading ? (
+            <p className="py-8 text-sm text-muted">Loading...</p>
+          ) : pendingTodos.length === 0 ? (
+            <p className="py-8 text-sm text-muted">No pending tasks.</p>
+          ) : (
+            <ul className="space-y-3">
+              {pendingTodos.map((todo) => {
+                const status = getDueStatus(todo.dueAt);
+                return (
+                  <li
+                    key={todo.id}
+                    className={`rounded-2xl border p-3 shadow-[0_8px_20px_-20px_#0d315f] ${getCardTone(status)}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <button
+                        type="button"
+                        onClick={() => void handleToggle(todo)}
+                        className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[#9fb5cd] text-[#2f5f95] transition hover:bg-[#eaf2fc]"
+                        aria-label={`Mark ${todo.title} complete`}
+                      >
+                        ✓
+                      </button>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-[#17355f]">{todo.title}</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                          <span className="rounded-full bg-[#edf3fa] px-2 py-0.5 text-[#4e6785]">
+                            Due: {formatDate(todo.dueAt)}
+                          </span>
+                          <span className="rounded-full bg-[#eaf4ff] px-2 py-0.5 text-[#215792]">
+                            {CATEGORY_LABEL[todo.category]}
+                          </span>
+                          <span className="rounded-full bg-[#f4ecff] px-2 py-0.5 text-[#61408c]">
+                            Priority: {PRIORITY_LABEL[todo.priority]}
+                          </span>
+                          {status === "warning" && (
+                            <span className="badge-status-warning rounded-full px-2 py-0.5">Warning</span>
+                          )}
+                          {status === "danger" && (
+                            <span className="badge-status-danger rounded-full px-2 py-0.5">Overdue</span>
+                          )}
+                        </div>
+                        {todo.memo && (
+                          <p className="mt-2 line-clamp-2 text-xs text-[#35557c]">{todo.memo}</p>
+                        )}
+                      </div>
+
+                      <div className="flex shrink-0 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(todo)}
+                          className="rounded-lg border border-[#c9d7e7] px-2 py-1 text-xs text-[#2d4f7d] hover:bg-[#edf5ff]"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDelete(todo)}
+                          className="rounded-lg border border-[#f1c7cd] px-2 py-1 text-xs text-[#a2202d] hover:bg-[#fff0f3]"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        <section className="mt-5 glass-card rounded-3xl p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-[#12325a]">Completed Tasks</h2>
             <Link
               href="/history"
               className="rounded-lg border border-[#c6d8ee] bg-[#edf5ff] px-3 py-1 text-xs font-semibold text-[#134b99] hover:brightness-95"
             >
-              履歴を見る
+              Open history
             </Link>
           </div>
-          {completedActiveTodos.length === 0 ? (
-            <p className="py-6 text-sm text-muted">表示対象の完了タスクはありません。</p>
+          {completedTodos.length === 0 ? (
+            <p className="py-6 text-sm text-muted">No completed tasks.</p>
           ) : (
             <ul className="space-y-3">
-              {completedActiveTodos.map((todo) => (
-                <li
-                  key={todo.id}
-                  className="rounded-2xl border border-[#d0e8df] bg-[#f5fffa] p-3"
-                >
+              {completedTodos.map((todo) => (
+                <li key={todo.id} className="rounded-2xl border border-[#d0e8df] bg-[#f5fffa] p-3">
                   <div className="flex items-start gap-3">
                     <button
                       type="button"
                       onClick={() => void handleToggle(todo)}
                       className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[#8cd7be] bg-[#16a078] text-white"
-                      aria-label={`${todo.title}を未完了に戻す`}
+                      aria-label={`Mark ${todo.title} pending`}
                     >
                       ✓
                     </button>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-[#4a6a60] line-through">{todo.title}</p>
                       <p className="mt-1 text-xs text-[#5f7f74]">
-                        完了: {formatDate(todo.completedAt ?? todo.updatedAt)}
+                        Completed: {formatDate(todo.completedAt ?? todo.updatedAt)}
                       </p>
                     </div>
                     <button
@@ -494,7 +432,7 @@ export default function Home() {
                       onClick={() => void handleDelete(todo)}
                       className="rounded-lg border border-[#f1c7cd] px-2 py-1 text-xs text-[#a2202d] hover:bg-[#fff0f3]"
                     >
-                      削除
+                      Delete
                     </button>
                   </div>
                 </li>
@@ -512,20 +450,20 @@ export default function Home() {
 
       {editing && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#0f1f35]/45 px-4">
-          <div className="glass-card w-full max-w-lg rounded-2xl p-5">
+          <div className="glass-card w-full max-w-xl rounded-2xl p-5">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-[#17355f]">タスク編集</h3>
+              <h3 className="text-lg font-semibold text-[#17355f]">Edit task</h3>
               <button
                 type="button"
                 onClick={closeEdit}
                 className="rounded-lg border border-[#cfdbeb] px-2 py-1 text-xs text-[#47658a] hover:bg-[#edf5ff]"
               >
-                閉じる
+                Close
               </button>
             </div>
             <form onSubmit={handleEdit} className="space-y-3">
               <label className="block text-sm text-muted" htmlFor="editTitle">
-                タイトル
+                Title
               </label>
               <input
                 id="editTitle"
@@ -533,8 +471,9 @@ export default function Home() {
                 onChange={(event) => setEditTitle(event.target.value)}
                 className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-4"
               />
+
               <label className="block text-sm text-muted" htmlFor="editDueAt">
-                期限（日付のみ）
+                Due date
               </label>
               <input
                 id="editDueAt"
@@ -543,20 +482,69 @@ export default function Home() {
                 onChange={(event) => setEditDueDate(event.target.value)}
                 className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-4"
               />
+
+              <label className="block text-sm text-muted" htmlFor="editMemo">
+                Memo
+              </label>
+              <textarea
+                id="editMemo"
+                value={editMemo}
+                onChange={(event) => setEditMemo(event.target.value)}
+                rows={3}
+                className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-4"
+              />
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm text-muted" htmlFor="editCategory">
+                    Category
+                  </label>
+                  <select
+                    id="editCategory"
+                    value={editCategory}
+                    onChange={(event) => setEditCategory(event.target.value as TodoCategory)}
+                    className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-4"
+                  >
+                    {Object.entries(CATEGORY_LABEL).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-muted" htmlFor="editPriority">
+                    Priority
+                  </label>
+                  <select
+                    id="editPriority"
+                    value={editPriority}
+                    onChange={(event) => setEditPriority(event.target.value as TodoPriority)}
+                    className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-4"
+                  >
+                    {Object.entries(PRIORITY_LABEL).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={closeEdit}
                   className="rounded-xl border border-[#cfdbeb] px-4 py-2 text-sm text-[#47658a] hover:bg-[#edf5ff]"
                 >
-                  キャンセル
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={editSaving}
                   className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {editSaving ? "保存中..." : "保存"}
+                  {editSaving ? "Saving..." : "Save"}
                 </button>
               </div>
             </form>

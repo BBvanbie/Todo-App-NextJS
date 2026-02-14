@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { TodoCategory, TodoPriority } from "@/src/generated/prisma";
 
 type CreateTodoInput = {
   title?: unknown;
   dueAt?: unknown;
+  memo?: unknown;
+  category?: unknown;
+  priority?: unknown;
 };
 
 function parseDueAt(value: unknown): Date | null | undefined {
@@ -14,6 +18,30 @@ function parseDueAt(value: unknown): Date | null | undefined {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return undefined;
   return date;
+}
+
+function parseMemo(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== "string") return undefined;
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  return trimmed;
+}
+
+function parseCategory(value: unknown): TodoCategory | undefined {
+  if (typeof value !== "string") return undefined;
+  return Object.values(TodoCategory).includes(value as TodoCategory)
+    ? (value as TodoCategory)
+    : undefined;
+}
+
+function parsePriority(value: unknown): TodoPriority | undefined {
+  if (typeof value !== "string") return undefined;
+  return Object.values(TodoPriority).includes(value as TodoPriority)
+    ? (value as TodoPriority)
+    : undefined;
 }
 
 export async function GET() {
@@ -51,10 +79,37 @@ export async function POST(request: Request) {
       );
     }
 
+    const memo = parseMemo(body.memo);
+    if (body.memo !== undefined && memo === undefined) {
+      return NextResponse.json(
+        { message: "memo must be a string or null." },
+        { status: 400 },
+      );
+    }
+
+    const category = body.category === undefined ? TodoCategory.OTHER : parseCategory(body.category);
+    if (category === undefined) {
+      return NextResponse.json(
+        { message: "category is invalid." },
+        { status: 400 },
+      );
+    }
+
+    const priority = body.priority === undefined ? TodoPriority.MEDIUM : parsePriority(body.priority);
+    if (priority === undefined) {
+      return NextResponse.json(
+        { message: "priority is invalid." },
+        { status: 400 },
+      );
+    }
+
     const todo = await prisma.todo.create({
       data: {
         title: body.title.trim(),
         dueAt,
+        memo: memo ?? null,
+        category,
+        priority,
       },
     });
 

@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { TodoCategory, TodoPriority } from "@/src/generated/prisma";
 
 type UpdateTodoInput = {
   title?: unknown;
   completed?: unknown;
   dueAt?: unknown;
+  memo?: unknown;
+  category?: unknown;
+  priority?: unknown;
 };
 
 function parseId(id: string): number | null {
@@ -23,6 +27,30 @@ function parseDueAt(value: unknown): Date | null | undefined {
   return date;
 }
 
+function parseMemo(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== "string") return undefined;
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  return trimmed;
+}
+
+function parseCategory(value: unknown): TodoCategory | undefined {
+  if (typeof value !== "string") return undefined;
+  return Object.values(TodoCategory).includes(value as TodoCategory)
+    ? (value as TodoCategory)
+    : undefined;
+}
+
+function parsePriority(value: unknown): TodoPriority | undefined {
+  if (typeof value !== "string") return undefined;
+  return Object.values(TodoPriority).includes(value as TodoPriority)
+    ? (value as TodoPriority)
+    : undefined;
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -37,6 +65,9 @@ export async function PATCH(
     const body = (await request.json()) as UpdateTodoInput;
     const data: {
       title?: string;
+      memo?: string | null;
+      category?: TodoCategory;
+      priority?: TodoPriority;
       completed?: boolean;
       dueAt?: Date;
       completedAt?: Date | null;
@@ -72,6 +103,39 @@ export async function PATCH(
         );
       }
       data.dueAt = dueAt;
+    }
+
+    if (body.memo !== undefined) {
+      const memo = parseMemo(body.memo);
+      if (memo === undefined) {
+        return NextResponse.json(
+          { message: "memo must be a string or null." },
+          { status: 400 },
+        );
+      }
+      data.memo = memo;
+    }
+
+    if (body.category !== undefined) {
+      const category = parseCategory(body.category);
+      if (category === undefined) {
+        return NextResponse.json(
+          { message: "category is invalid." },
+          { status: 400 },
+        );
+      }
+      data.category = category;
+    }
+
+    if (body.priority !== undefined) {
+      const priority = parsePriority(body.priority);
+      if (priority === undefined) {
+        return NextResponse.json(
+          { message: "priority is invalid." },
+          { status: 400 },
+        );
+      }
+      data.priority = priority;
     }
 
     if (Object.keys(data).length === 0) {

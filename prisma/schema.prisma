@@ -13,14 +13,33 @@ datasource db {
   provider = "postgresql"
 }
 
-model Todo {
-  id        Int      @id @default(autoincrement())
-  title     String
-  completed Boolean  @default(false)
-  dueAt     DateTime
-  completedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum TodoCategory {
+  WORK
+  PRIVATE
+  PROCEDURE
+  STUDY
+  HEALTH
+  SHOPPING
+  OTHER
+}
 
-  @@index([completed, dueAt, completedAt])
+enum TodoPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model Todo {
+  id          Int          @id @default(autoincrement())
+  title       String
+  memo        String?
+  category    TodoCategory @default(OTHER)
+  priority    TodoPriority @default(MEDIUM)
+  completed   Boolean      @default(false)
+  dueAt       DateTime
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([completed, dueAt, completedAt, category, priority])
 }

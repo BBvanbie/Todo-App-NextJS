@@ -123,6 +123,9 @@ exports.Prisma.TransactionIsolationLevel = makeStrictEnum({
 exports.Prisma.TodoScalarFieldEnum = {
   id: 'id',
   title: 'title',
+  memo: 'memo',
+  category: 'category',
+  priority: 'priority',
   completed: 'completed',
   dueAt: 'dueAt',
   completedAt: 'completedAt',
@@ -144,7 +147,21 @@ exports.Prisma.NullsOrder = {
   first: 'first',
   last: 'last'
 };
+exports.TodoCategory = exports.$Enums.TodoCategory = {
+  WORK: 'WORK',
+  PRIVATE: 'PRIVATE',
+  PROCEDURE: 'PROCEDURE',
+  STUDY: 'STUDY',
+  HEALTH: 'HEALTH',
+  SHOPPING: 'SHOPPING',
+  OTHER: 'OTHER'
+};
 
+exports.TodoPriority = exports.$Enums.TodoPriority = {
+  HIGH: 'HIGH',
+  MEDIUM: 'MEDIUM',
+  LOW: 'LOW'
+};
 
 exports.Prisma.ModelName = {
   Todo: 'Todo'

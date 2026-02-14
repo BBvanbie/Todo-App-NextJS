@@ -20,6 +20,41 @@ export type PrismaPromise<T> = $Public.PrismaPromise<T>
 export type Todo = $Result.DefaultSelection<Prisma.$TodoPayload>
 
 /**
+ * Enums
+ */
+export namespace $Enums {
+  export const TodoCategory: {
+  WORK: 'WORK',
+  PRIVATE: 'PRIVATE',
+  PROCEDURE: 'PROCEDURE',
+  STUDY: 'STUDY',
+  HEALTH: 'HEALTH',
+  SHOPPING: 'SHOPPING',
+  OTHER: 'OTHER'
+};
+
+export type TodoCategory = (typeof TodoCategory)[keyof typeof TodoCategory]
+
+
+export const TodoPriority: {
+  HIGH: 'HIGH',
+  MEDIUM: 'MEDIUM',
+  LOW: 'LOW'
+};
+
+export type TodoPriority = (typeof TodoPriority)[keyof typeof TodoPriority]
+
+}
+
+export type TodoCategory = $Enums.TodoCategory
+
+export const TodoCategory: typeof $Enums.TodoCategory
+
+export type TodoPriority = $Enums.TodoPriority
+
+export const TodoPriority: typeof $Enums.TodoPriority
+
+/**
  * ##  Prisma Client ʲˢ
  *
  * Type-safe database client for TypeScript & Node.js
@@ -885,6 +920,9 @@ export namespace Prisma {
   export type TodoMinAggregateOutputType = {
     id: number | null
     title: string | null
+    memo: string | null
+    category: $Enums.TodoCategory | null
+    priority: $Enums.TodoPriority | null
     completed: boolean | null
     dueAt: Date | null
     completedAt: Date | null
@@ -895,6 +933,9 @@ export namespace Prisma {
   export type TodoMaxAggregateOutputType = {
     id: number | null
     title: string | null
+    memo: string | null
+    category: $Enums.TodoCategory | null
+    priority: $Enums.TodoPriority | null
     completed: boolean | null
     dueAt: Date | null
     completedAt: Date | null
@@ -905,6 +946,9 @@ export namespace Prisma {
   export type TodoCountAggregateOutputType = {
     id: number
     title: number
+    memo: number
+    category: number
+    priority: number
     completed: number
     dueAt: number
     completedAt: number
@@ -925,6 +969,9 @@ export namespace Prisma {
   export type TodoMinAggregateInputType = {
     id?: true
     title?: true
+    memo?: true
+    category?: true
+    priority?: true
     completed?: true
     dueAt?: true
     completedAt?: true
@@ -935,6 +982,9 @@ export namespace Prisma {
   export type TodoMaxAggregateInputType = {
     id?: true
     title?: true
+    memo?: true
+    category?: true
+    priority?: true
     completed?: true
     dueAt?: true
     completedAt?: true
@@ -945,6 +995,9 @@ export namespace Prisma {
   export type TodoCountAggregateInputType = {
     id?: true
     title?: true
+    memo?: true
+    category?: true
+    priority?: true
     completed?: true
     dueAt?: true
     completedAt?: true
@@ -1042,6 +1095,9 @@ export namespace Prisma {
   export type TodoGroupByOutputType = {
     id: number
     title: string
+    memo: string | null
+    category: $Enums.TodoCategory
+    priority: $Enums.TodoPriority
     completed: boolean
     dueAt: Date
     completedAt: Date | null
@@ -1071,6 +1127,9 @@ export namespace Prisma {
   export type TodoSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
     title?: boolean
+    memo?: boolean
+    category?: boolean
+    priority?: boolean
     completed?: boolean
     dueAt?: boolean
     completedAt?: boolean
@@ -1081,6 +1140,9 @@ export namespace Prisma {
   export type TodoSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
     title?: boolean
+    memo?: boolean
+    category?: boolean
+    priority?: boolean
     completed?: boolean
     dueAt?: boolean
     completedAt?: boolean
@@ -1091,6 +1153,9 @@ export namespace Prisma {
   export type TodoSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
     title?: boolean
+    memo?: boolean
+    category?: boolean
+    priority?: boolean
     completed?: boolean
     dueAt?: boolean
     completedAt?: boolean
@@ -1101,6 +1166,9 @@ export namespace Prisma {
   export type TodoSelectScalar = {
     id?: boolean
     title?: boolean
+    memo?: boolean
+    category?: boolean
+    priority?: boolean
     completed?: boolean
     dueAt?: boolean
     completedAt?: boolean
@@ -1108,7 +1176,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type TodoOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "title" | "completed" | "dueAt" | "completedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["todo"]>
+  export type TodoOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "title" | "memo" | "category" | "priority" | "completed" | "dueAt" | "completedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["todo"]>
 
   export type $TodoPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "Todo"
@@ -1116,6 +1184,9 @@ export namespace Prisma {
     scalars: $Extensions.GetPayloadResult<{
       id: number
       title: string
+      memo: string | null
+      category: $Enums.TodoCategory
+      priority: $Enums.TodoPriority
       completed: boolean
       dueAt: Date
       completedAt: Date | null
@@ -1546,6 +1617,9 @@ export namespace Prisma {
   interface TodoFieldRefs {
     readonly id: FieldRef<"Todo", 'Int'>
     readonly title: FieldRef<"Todo", 'String'>
+    readonly memo: FieldRef<"Todo", 'String'>
+    readonly category: FieldRef<"Todo", 'TodoCategory'>
+    readonly priority: FieldRef<"Todo", 'TodoPriority'>
     readonly completed: FieldRef<"Todo", 'Boolean'>
     readonly dueAt: FieldRef<"Todo", 'DateTime'>
     readonly completedAt: FieldRef<"Todo", 'DateTime'>
@@ -1934,6 +2008,9 @@ export namespace Prisma {
   export const TodoScalarFieldEnum: {
     id: 'id',
     title: 'title',
+    memo: 'memo',
+    category: 'category',
+    priority: 'priority',
     completed: 'completed',
     dueAt: 'dueAt',
     completedAt: 'completedAt',
@@ -2002,6 +2079,34 @@ export namespace Prisma {
 
 
   /**
+   * Reference to a field of type 'TodoCategory'
+   */
+  export type EnumTodoCategoryFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'TodoCategory'>
+    
+
+
+  /**
+   * Reference to a field of type 'TodoCategory[]'
+   */
+  export type ListEnumTodoCategoryFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'TodoCategory[]'>
+    
+
+
+  /**
+   * Reference to a field of type 'TodoPriority'
+   */
+  export type EnumTodoPriorityFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'TodoPriority'>
+    
+
+
+  /**
+   * Reference to a field of type 'TodoPriority[]'
+   */
+  export type ListEnumTodoPriorityFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'TodoPriority[]'>
+    
+
+
+  /**
    * Reference to a field of type 'Boolean'
    */
   export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
@@ -2045,6 +2150,9 @@ export namespace Prisma {
     NOT?: TodoWhereInput | TodoWhereInput[]
     id?: IntFilter<"Todo"> | number
     title?: StringFilter<"Todo"> | string
+    memo?: StringNullableFilter<"Todo"> | string | null
+    category?: EnumTodoCategoryFilter<"Todo"> | $Enums.TodoCategory
+    priority?: EnumTodoPriorityFilter<"Todo"> | $Enums.TodoPriority
     completed?: BoolFilter<"Todo"> | boolean
     dueAt?: DateTimeFilter<"Todo"> | Date | string
     completedAt?: DateTimeNullableFilter<"Todo"> | Date | string | null
@@ -2055,6 +2163,9 @@ export namespace Prisma {
   export type TodoOrderByWithRelationInput = {
     id?: SortOrder
     title?: SortOrder
+    memo?: SortOrderInput | SortOrder
+    category?: SortOrder
+    priority?: SortOrder
     completed?: SortOrder
     dueAt?: SortOrder
     completedAt?: SortOrderInput | SortOrder
@@ -2068,6 +2179,9 @@ export namespace Prisma {
     OR?: TodoWhereInput[]
     NOT?: TodoWhereInput | TodoWhereInput[]
     title?: StringFilter<"Todo"> | string
+    memo?: StringNullableFilter<"Todo"> | string | null
+    category?: EnumTodoCategoryFilter<"Todo"> | $Enums.TodoCategory
+    priority?: EnumTodoPriorityFilter<"Todo"> | $Enums.TodoPriority
     completed?: BoolFilter<"Todo"> | boolean
     dueAt?: DateTimeFilter<"Todo"> | Date | string
     completedAt?: DateTimeNullableFilter<"Todo"> | Date | string | null
@@ -2078,6 +2192,9 @@ export namespace Prisma {
   export type TodoOrderByWithAggregationInput = {
     id?: SortOrder
     title?: SortOrder
+    memo?: SortOrderInput | SortOrder
+    category?: SortOrder
+    priority?: SortOrder
     completed?: SortOrder
     dueAt?: SortOrder
     completedAt?: SortOrderInput | SortOrder
@@ -2096,6 +2213,9 @@ export namespace Prisma {
     NOT?: TodoScalarWhereWithAggregatesInput | TodoScalarWhereWithAggregatesInput[]
     id?: IntWithAggregatesFilter<"Todo"> | number
     title?: StringWithAggregatesFilter<"Todo"> | string
+    memo?: StringNullableWithAggregatesFilter<"Todo"> | string | null
+    category?: EnumTodoCategoryWithAggregatesFilter<"Todo"> | $Enums.TodoCategory
+    priority?: EnumTodoPriorityWithAggregatesFilter<"Todo"> | $Enums.TodoPriority
     completed?: BoolWithAggregatesFilter<"Todo"> | boolean
     dueAt?: DateTimeWithAggregatesFilter<"Todo"> | Date | string
     completedAt?: DateTimeNullableWithAggregatesFilter<"Todo"> | Date | string | null
@@ -2105,6 +2225,9 @@ export namespace Prisma {
 
   export type TodoCreateInput = {
     title: string
+    memo?: string | null
+    category?: $Enums.TodoCategory
+    priority?: $Enums.TodoPriority
     completed?: boolean
     dueAt: Date | string
     completedAt?: Date | string | null
@@ -2115,6 +2238,9 @@ export namespace Prisma {
   export type TodoUncheckedCreateInput = {
     id?: number
     title: string
+    memo?: string | null
+    category?: $Enums.TodoCategory
+    priority?: $Enums.TodoPriority
     completed?: boolean
     dueAt: Date | string
     completedAt?: Date | string | null
@@ -2124,6 +2250,9 @@ export namespace Prisma {
 
   export type TodoUpdateInput = {
     title?: StringFieldUpdateOperationsInput | string
+    memo?: NullableStringFieldUpdateOperationsInput | string | null
+    category?: EnumTodoCategoryFieldUpdateOperationsInput | $Enums.TodoCategory
+    priority?: EnumTodoPriorityFieldUpdateOperationsInput | $Enums.TodoPriority
     completed?: BoolFieldUpdateOperationsInput | boolean
     dueAt?: DateTimeFieldUpdateOperationsInput | Date | string
     completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2134,6 +2263,9 @@ export namespace Prisma {
   export type TodoUncheckedUpdateInput = {
     id?: IntFieldUpdateOperationsInput | number
     title?: StringFieldUpdateOperationsInput | string
+    memo?: NullableStringFieldUpdateOperationsInput | string | null
+    category?: EnumTodoCategoryFieldUpdateOperationsInput | $Enums.TodoCategory
+    priority?: EnumTodoPriorityFieldUpdateOperationsInput | $Enums.TodoPriority
     completed?: BoolFieldUpdateOperationsInput | boolean
     dueAt?: DateTimeFieldUpdateOperationsInput | Date | string
     completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2144,6 +2276,9 @@ export namespace Prisma {
   export type TodoCreateManyInput = {
     id?: number
     title: string
+    memo?: string | null
+    category?: $Enums.TodoCategory
+    priority?: $Enums.TodoPriority
     completed?: boolean
     dueAt: Date | string
     completedAt?: Date | string | null
@@ -2153,6 +2288,9 @@ export namespace Prisma {
 
   export type TodoUpdateManyMutationInput = {
     title?: StringFieldUpdateOperationsInput | string
+    memo?: NullableStringFieldUpdateOperationsInput | string | null
+    category?: EnumTodoCategoryFieldUpdateOperationsInput | $Enums.TodoCategory
+    priority?: EnumTodoPriorityFieldUpdateOperationsInput | $Enums.TodoPriority
     completed?: BoolFieldUpdateOperationsInput | boolean
     dueAt?: DateTimeFieldUpdateOperationsInput | Date | string
     completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2163,6 +2301,9 @@ export namespace Prisma {
   export type TodoUncheckedUpdateManyInput = {
     id?: IntFieldUpdateOperationsInput | number
     title?: StringFieldUpdateOperationsInput | string
+    memo?: NullableStringFieldUpdateOperationsInput | string | null
+    category?: EnumTodoCategoryFieldUpdateOperationsInput | $Enums.TodoCategory
+    priority?: EnumTodoPriorityFieldUpdateOperationsInput | $Enums.TodoPriority
     completed?: BoolFieldUpdateOperationsInput | boolean
     dueAt?: DateTimeFieldUpdateOperationsInput | Date | string
     completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2194,6 +2335,35 @@ export namespace Prisma {
     endsWith?: string | StringFieldRefInput<$PrismaModel>
     mode?: QueryMode
     not?: NestedStringFilter<$PrismaModel> | string
+  }
+
+  export type StringNullableFilter<$PrismaModel = never> = {
+    equals?: string | StringFieldRefInput<$PrismaModel> | null
+    in?: string[] | ListStringFieldRefInput<$PrismaModel> | null
+    notIn?: string[] | ListStringFieldRefInput<$PrismaModel> | null
+    lt?: string | StringFieldRefInput<$PrismaModel>
+    lte?: string | StringFieldRefInput<$PrismaModel>
+    gt?: string | StringFieldRefInput<$PrismaModel>
+    gte?: string | StringFieldRefInput<$PrismaModel>
+    contains?: string | StringFieldRefInput<$PrismaModel>
+    startsWith?: string | StringFieldRefInput<$PrismaModel>
+    endsWith?: string | StringFieldRefInput<$PrismaModel>
+    mode?: QueryMode
+    not?: NestedStringNullableFilter<$PrismaModel> | string | null
+  }
+
+  export type EnumTodoCategoryFilter<$PrismaModel = never> = {
+    equals?: $Enums.TodoCategory | EnumTodoCategoryFieldRefInput<$PrismaModel>
+    in?: $Enums.TodoCategory[] | ListEnumTodoCategoryFieldRefInput<$PrismaModel>
+    notIn?: $Enums.TodoCategory[] | ListEnumTodoCategoryFieldRefInput<$PrismaModel>
+    not?: NestedEnumTodoCategoryFilter<$PrismaModel> | $Enums.TodoCategory
+  }
+
+  export type EnumTodoPriorityFilter<$PrismaModel = never> = {
+    equals?: $Enums.TodoPriority | EnumTodoPriorityFieldRefInput<$PrismaModel>
+    in?: $Enums.TodoPriority[] | ListEnumTodoPriorityFieldRefInput<$PrismaModel>
+    notIn?: $Enums.TodoPriority[] | ListEnumTodoPriorityFieldRefInput<$PrismaModel>
+    not?: NestedEnumTodoPriorityFilter<$PrismaModel> | $Enums.TodoPriority
   }
 
   export type BoolFilter<$PrismaModel = never> = {
@@ -2231,6 +2401,9 @@ export namespace Prisma {
   export type TodoCountOrderByAggregateInput = {
     id?: SortOrder
     title?: SortOrder
+    memo?: SortOrder
+    category?: SortOrder
+    priority?: SortOrder
     completed?: SortOrder
     dueAt?: SortOrder
     completedAt?: SortOrder
@@ -2245,6 +2418,9 @@ export namespace Prisma {
   export type TodoMaxOrderByAggregateInput = {
     id?: SortOrder
     title?: SortOrder
+    memo?: SortOrder
+    category?: SortOrder
+    priority?: SortOrder
     completed?: SortOrder
     dueAt?: SortOrder
     completedAt?: SortOrder
@@ -2255,6 +2431,9 @@ export namespace Prisma {
   export type TodoMinOrderByAggregateInput = {
     id?: SortOrder
     title?: SortOrder
+    memo?: SortOrder
+    category?: SortOrder
+    priority?: SortOrder
     completed?: SortOrder
     dueAt?: SortOrder
     completedAt?: SortOrder
@@ -2300,6 +2479,44 @@ export namespace Prisma {
     _max?: NestedStringFilter<$PrismaModel>
   }
 
+  export type StringNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: string | StringFieldRefInput<$PrismaModel> | null
+    in?: string[] | ListStringFieldRefInput<$PrismaModel> | null
+    notIn?: string[] | ListStringFieldRefInput<$PrismaModel> | null
+    lt?: string | StringFieldRefInput<$PrismaModel>
+    lte?: string | StringFieldRefInput<$PrismaModel>
+    gt?: string | StringFieldRefInput<$PrismaModel>
+    gte?: string | StringFieldRefInput<$PrismaModel>
+    contains?: string | StringFieldRefInput<$PrismaModel>
+    startsWith?: string | StringFieldRefInput<$PrismaModel>
+    endsWith?: string | StringFieldRefInput<$PrismaModel>
+    mode?: QueryMode
+    not?: NestedStringNullableWithAggregatesFilter<$PrismaModel> | string | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedStringNullableFilter<$PrismaModel>
+    _max?: NestedStringNullableFilter<$PrismaModel>
+  }
+
+  export type EnumTodoCategoryWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.TodoCategory | EnumTodoCategoryFieldRefInput<$PrismaModel>
+    in?: $Enums.TodoCategory[] | ListEnumTodoCategoryFieldRefInput<$PrismaModel>
+    notIn?: $Enums.TodoCategory[] | ListEnumTodoCategoryFieldRefInput<$PrismaModel>
+    not?: NestedEnumTodoCategoryWithAggregatesFilter<$PrismaModel> | $Enums.TodoCategory
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumTodoCategoryFilter<$PrismaModel>
+    _max?: NestedEnumTodoCategoryFilter<$PrismaModel>
+  }
+
+  export type EnumTodoPriorityWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.TodoPriority | EnumTodoPriorityFieldRefInput<$PrismaModel>
+    in?: $Enums.TodoPriority[] | ListEnumTodoPriorityFieldRefInput<$PrismaModel>
+    notIn?: $Enums.TodoPriority[] | ListEnumTodoPriorityFieldRefInput<$PrismaModel>
+    not?: NestedEnumTodoPriorityWithAggregatesFilter<$PrismaModel> | $Enums.TodoPriority
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumTodoPriorityFilter<$PrismaModel>
+    _max?: NestedEnumTodoPriorityFilter<$PrismaModel>
+  }
+
   export type BoolWithAggregatesFilter<$PrismaModel = never> = {
     equals?: boolean | BooleanFieldRefInput<$PrismaModel>
     not?: NestedBoolWithAggregatesFilter<$PrismaModel> | boolean
@@ -2338,6 +2555,18 @@ export namespace Prisma {
 
   export type StringFieldUpdateOperationsInput = {
     set?: string
+  }
+
+  export type NullableStringFieldUpdateOperationsInput = {
+    set?: string | null
+  }
+
+  export type EnumTodoCategoryFieldUpdateOperationsInput = {
+    set?: $Enums.TodoCategory
+  }
+
+  export type EnumTodoPriorityFieldUpdateOperationsInput = {
+    set?: $Enums.TodoPriority
   }
 
   export type BoolFieldUpdateOperationsInput = {
@@ -2383,6 +2612,34 @@ export namespace Prisma {
     startsWith?: string | StringFieldRefInput<$PrismaModel>
     endsWith?: string | StringFieldRefInput<$PrismaModel>
     not?: NestedStringFilter<$PrismaModel> | string
+  }
+
+  export type NestedStringNullableFilter<$PrismaModel = never> = {
+    equals?: string | StringFieldRefInput<$PrismaModel> | null
+    in?: string[] | ListStringFieldRefInput<$PrismaModel> | null
+    notIn?: string[] | ListStringFieldRefInput<$PrismaModel> | null
+    lt?: string | StringFieldRefInput<$PrismaModel>
+    lte?: string | StringFieldRefInput<$PrismaModel>
+    gt?: string | StringFieldRefInput<$PrismaModel>
+    gte?: string | StringFieldRefInput<$PrismaModel>
+    contains?: string | StringFieldRefInput<$PrismaModel>
+    startsWith?: string | StringFieldRefInput<$PrismaModel>
+    endsWith?: string | StringFieldRefInput<$PrismaModel>
+    not?: NestedStringNullableFilter<$PrismaModel> | string | null
+  }
+
+  export type NestedEnumTodoCategoryFilter<$PrismaModel = never> = {
+    equals?: $Enums.TodoCategory | EnumTodoCategoryFieldRefInput<$PrismaModel>
+    in?: $Enums.TodoCategory[] | ListEnumTodoCategoryFieldRefInput<$PrismaModel>
+    notIn?: $Enums.TodoCategory[] | ListEnumTodoCategoryFieldRefInput<$PrismaModel>
+    not?: NestedEnumTodoCategoryFilter<$PrismaModel> | $Enums.TodoCategory
+  }
+
+  export type NestedEnumTodoPriorityFilter<$PrismaModel = never> = {
+    equals?: $Enums.TodoPriority | EnumTodoPriorityFieldRefInput<$PrismaModel>
+    in?: $Enums.TodoPriority[] | ListEnumTodoPriorityFieldRefInput<$PrismaModel>
+    notIn?: $Enums.TodoPriority[] | ListEnumTodoPriorityFieldRefInput<$PrismaModel>
+    not?: NestedEnumTodoPriorityFilter<$PrismaModel> | $Enums.TodoPriority
   }
 
   export type NestedBoolFilter<$PrismaModel = never> = {
@@ -2456,6 +2713,54 @@ export namespace Prisma {
     _max?: NestedStringFilter<$PrismaModel>
   }
 
+  export type NestedStringNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: string | StringFieldRefInput<$PrismaModel> | null
+    in?: string[] | ListStringFieldRefInput<$PrismaModel> | null
+    notIn?: string[] | ListStringFieldRefInput<$PrismaModel> | null
+    lt?: string | StringFieldRefInput<$PrismaModel>
+    lte?: string | StringFieldRefInput<$PrismaModel>
+    gt?: string | StringFieldRefInput<$PrismaModel>
+    gte?: string | StringFieldRefInput<$PrismaModel>
+    contains?: string | StringFieldRefInput<$PrismaModel>
+    startsWith?: string | StringFieldRefInput<$PrismaModel>
+    endsWith?: string | StringFieldRefInput<$PrismaModel>
+    not?: NestedStringNullableWithAggregatesFilter<$PrismaModel> | string | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedStringNullableFilter<$PrismaModel>
+    _max?: NestedStringNullableFilter<$PrismaModel>
+  }
+
+  export type NestedIntNullableFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntNullableFilter<$PrismaModel> | number | null
+  }
+
+  export type NestedEnumTodoCategoryWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.TodoCategory | EnumTodoCategoryFieldRefInput<$PrismaModel>
+    in?: $Enums.TodoCategory[] | ListEnumTodoCategoryFieldRefInput<$PrismaModel>
+    notIn?: $Enums.TodoCategory[] | ListEnumTodoCategoryFieldRefInput<$PrismaModel>
+    not?: NestedEnumTodoCategoryWithAggregatesFilter<$PrismaModel> | $Enums.TodoCategory
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumTodoCategoryFilter<$PrismaModel>
+    _max?: NestedEnumTodoCategoryFilter<$PrismaModel>
+  }
+
+  export type NestedEnumTodoPriorityWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.TodoPriority | EnumTodoPriorityFieldRefInput<$PrismaModel>
+    in?: $Enums.TodoPriority[] | ListEnumTodoPriorityFieldRefInput<$PrismaModel>
+    notIn?: $Enums.TodoPriority[] | ListEnumTodoPriorityFieldRefInput<$PrismaModel>
+    not?: NestedEnumTodoPriorityWithAggregatesFilter<$PrismaModel> | $Enums.TodoPriority
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumTodoPriorityFilter<$PrismaModel>
+    _max?: NestedEnumTodoPriorityFilter<$PrismaModel>
+  }
+
   export type NestedBoolWithAggregatesFilter<$PrismaModel = never> = {
     equals?: boolean | BooleanFieldRefInput<$PrismaModel>
     not?: NestedBoolWithAggregatesFilter<$PrismaModel> | boolean
@@ -2490,17 +2795,6 @@ export namespace Prisma {
     _count?: NestedIntNullableFilter<$PrismaModel>
     _min?: NestedDateTimeNullableFilter<$PrismaModel>
     _max?: NestedDateTimeNullableFilter<$PrismaModel>
-  }
-
-  export type NestedIntNullableFilter<$PrismaModel = never> = {
-    equals?: number | IntFieldRefInput<$PrismaModel> | null
-    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
-    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
-    lt?: number | IntFieldRefInput<$PrismaModel>
-    lte?: number | IntFieldRefInput<$PrismaModel>
-    gt?: number | IntFieldRefInput<$PrismaModel>
-    gte?: number | IntFieldRefInput<$PrismaModel>
-    not?: NestedIntNullableFilter<$PrismaModel> | number | null
   }
 
 
