@@ -48,8 +48,18 @@ model Todo {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   notifications Notification[]
+  editHistories TodoEditHistory[]
 
   @@index([completed, dueAt, completedAt, category, priority])
+}
+
+model TodoEditHistory {
+  id        Int      @id @default(autoincrement())
+  todoId    Int
+  editedAt  DateTime @default(now())
+  todo      Todo     @relation(fields: [todoId], references: [id], onDelete: Cascade)
+
+  @@index([todoId, editedAt])
 }
 
 model Notification {

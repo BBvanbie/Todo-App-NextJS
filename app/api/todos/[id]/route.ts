@@ -63,6 +63,13 @@ export async function PATCH(
 
   try {
     const body = (await request.json()) as UpdateTodoInput;
+    const shouldLogEdit =
+      body.title !== undefined ||
+      body.dueAt !== undefined ||
+      body.memo !== undefined ||
+      body.category !== undefined ||
+      body.priority !== undefined;
+
     const data: {
       title?: string;
       memo?: string | null;
@@ -153,9 +160,20 @@ export async function PATCH(
       return NextResponse.json({ message: "Todo not found." }, { status: 404 });
     }
 
-    const todo = await prisma.todo.update({
-      where: { id: todoId },
-      data,
+    const todo = await prisma.$transaction(async (tx) => {
+      const updatedTodo = await tx.todo.update({
+        where: { id: todoId },
+        data,
+      });
+
+      if (shouldLogEdit) {
+        await tx.$executeRaw`
+          INSERT INTO "TodoEditHistory" ("todoId")
+          VALUES (${todoId})
+        `;
+      }
+
+      return updatedTodo;
     });
 
     return NextResponse.json(todo);
