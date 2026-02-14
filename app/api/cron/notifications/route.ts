@@ -59,45 +59,90 @@ function isAuthorized(request: Request): boolean {
   return false;
 }
 
+function isVercelCronRequest(request: Request): boolean {
+  const ua = request.headers.get("user-agent")?.toLowerCase() ?? "";
+  const xVercelCron = request.headers.get("x-vercel-cron");
+  return ua.includes("vercel-cron") || xVercelCron !== null;
+}
+
+async function createNotifications() {
+  const now = new Date();
+  const todos = await prisma.todo.findMany({
+    where: { completed: false },
+    select: { id: true, title: true, dueAt: true },
+  });
+
+  const records = todos
+    .map((todo) => {
+      const type = resolveTypeByDueDate(todo.dueAt, now);
+      if (!type) return null;
+      return {
+        todoId: todo.id,
+        type,
+        message: notificationMessage(type, todo.title),
+      };
+    })
+    .filter(
+      (v): v is { todoId: number; type: NotificationType; message: string } =>
+        Boolean(v),
+    );
+
+  if (records.length === 0) {
+    return NextResponse.json(
+      { createdCount: 0 },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  const created = await prisma.notification.createMany({
+    data: records,
+    skipDuplicates: true,
+  });
+
+  return NextResponse.json(
+    { createdCount: created.count },
+    { headers: { "Cache-Control": "no-store" } },
+  );
+}
+
 export async function GET(request: Request) {
+  if (!isVercelCronRequest(request)) {
+    return NextResponse.json(
+      { message: "Method not allowed. Use POST for manual execution." },
+      { status: 405, headers: { Allow: "POST", "Cache-Control": "no-store" } },
+    );
+  }
+
   if (!isAuthorized(request)) {
     return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
   }
 
   try {
-    const now = new Date();
-    const todos = await prisma.todo.findMany({
-      where: { completed: false },
-      select: { id: true, title: true, dueAt: true },
-    });
-
-    const records = todos
-      .map((todo) => {
-        const type = resolveTypeByDueDate(todo.dueAt, now);
-        if (!type) return null;
-        return {
-          todoId: todo.id,
-          type,
-          message: notificationMessage(type, todo.title),
-        };
-      })
-      .filter((v): v is { todoId: number; type: NotificationType; message: string } => Boolean(v));
-
-    if (records.length === 0) {
-      return NextResponse.json({ createdCount: 0 });
-    }
-
-    const created = await prisma.notification.createMany({
-      data: records,
-      skipDuplicates: true,
-    });
-
-    return NextResponse.json({ createdCount: created.count });
+    return await createNotifications();
   } catch (error) {
     console.error("GET /api/cron/notifications failed:", error);
     return NextResponse.json(
       { message: "Failed to generate notifications." },
       { status: 500 },
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json(
+      { message: "Unauthorized." },
+      { status: 401, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  try {
+    return await createNotifications();
+  } catch (error) {
+    console.error("POST /api/cron/notifications failed:", error);
+    return NextResponse.json(
+      { message: "Failed to generate notifications." },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }
 }

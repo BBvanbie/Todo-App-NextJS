@@ -1,5 +1,19 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Security
+
+Set these environment variables to enable Basic authentication for all pages and APIs:
+
+```env
+BASIC_AUTH_USER=your-user
+BASIC_AUTH_PASSWORD=your-strong-password
+```
+
+Notes:
+- When either value is empty, Basic authentication is disabled.
+- `/api/cron/*` is excluded from Basic auth and continues using `CRON_SECRET`.
+- `/api/cron/notifications` manual trigger is `POST` (authenticated). `GET` is reserved for Vercel Cron requests.
+
 ## Getting Started
 
 First, run the development server:
