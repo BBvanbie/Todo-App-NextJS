@@ -1,26 +1,96 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f3f7fb;
+  --surface: #ffffff;
+  --surface-strong: #e8f0f8;
+  --foreground: #0f1f35;
+  --muted: #5f728c;
+  --primary: #0e6efd;
+  --success: #179f78;
+  --warning: #ff9f1c;
+  --danger: #e63946;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-strong: var(--surface-strong);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --font-sans: "Aptos", "Trebuchet MS", "Segoe UI", sans-serif;
+  --font-mono: "Consolas", "Lucida Console", monospace;
 }
 
 body {
-  background: var(--background);
+  min-height: 100vh;
+  background:
+    radial-gradient(56rem 56rem at 8% -5%, #d4e9ff 0%, transparent 52%),
+    radial-gradient(42rem 42rem at 90% 0%, #d7ffe9 0%, transparent 48%),
+    linear-gradient(180deg, #f5f9ff 0%, var(--background) 45%, #edf3fa 100%);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+.glass-card {
+  background: color-mix(in srgb, var(--surface) 86%, #dce7f5 14%);
+  border: 1px solid #d4e1f0;
+  box-shadow:
+    0 18px 40px -32px #12355d66,
+    inset 0 1px 0 #ffffffb3;
+  backdrop-filter: blur(8px);
+}
+
+.soft-grid {
+  background-image:
+    linear-gradient(to right, #dfe8f2 1px, transparent 1px),
+    linear-gradient(to bottom, #dfe8f2 1px, transparent 1px);
+  background-size: 26px 26px;
+  opacity: 0.24;
+}
+
+.badge-status-warning {
+  background: #fff5e5;
+  color: #9a5600;
+  border: 1px solid #ffd499;
+}
+
+.badge-status-danger {
+  background: #ffeaec;
+  color: #a80c1a;
+  border: 1px solid #ffb9c0;
+}
+
+.congrats-enter {
+  animation: congrats-enter 220ms ease-out;
+}
+
+.confetti {
+  animation: confetti-fall 900ms ease-out forwards;
+}
+
+@keyframes congrats-enter {
+  from {
+    transform: translateY(-14px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes confetti-fall {
+  from {
+    transform: translateY(-16px) rotate(0deg);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(60px) rotate(25deg);
+    opacity: 0;
+  }
 }
