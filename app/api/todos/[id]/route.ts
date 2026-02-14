@@ -161,8 +161,9 @@ export async function PATCH(
     return NextResponse.json(todo);
   } catch (error) {
     console.error(`PATCH /api/todos/${todoId} failed:`, error);
+    const detail = error instanceof Error ? error.message : "unknown error";
     return NextResponse.json(
-      { message: "Failed to update todo." },
+      { message: `Failed to update todo. (${detail})` },
       { status: 500 },
     );
   }
@@ -194,8 +195,9 @@ export async function DELETE(
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     console.error(`DELETE /api/todos/${todoId} failed:`, error);
+    const detail = error instanceof Error ? error.message : "unknown error";
     return NextResponse.json(
-      { message: "Failed to delete todo." },
+      { message: `Failed to delete todo. (${detail})` },
       { status: 500 },
     );
   }

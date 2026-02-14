@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Next Todos",
-  description: "Personal todo dashboard with Neon + Prisma",
+  title: "Todoアプリ",
+  description: "Neon + Prisma で作る個人用Todoダッシュボード",
 };
 
 export default function RootLayout({
@@ -12,7 +12,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="ja">
       <body className="antialiased">
         {children}
       </body>

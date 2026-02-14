@@ -16,19 +16,19 @@ type TodoCategory =
 type TodoPriority = "HIGH" | "MEDIUM" | "LOW";
 
 const CATEGORY_OPTIONS: Array<{ value: TodoCategory; label: string }> = [
-  { value: "WORK", label: "Work" },
-  { value: "PRIVATE", label: "Private" },
-  { value: "PROCEDURE", label: "Procedure" },
-  { value: "STUDY", label: "Study" },
-  { value: "HEALTH", label: "Health" },
-  { value: "SHOPPING", label: "Shopping" },
-  { value: "OTHER", label: "Other" },
+  { value: "WORK", label: "仕事" },
+  { value: "PRIVATE", label: "プライベート" },
+  { value: "PROCEDURE", label: "手続き" },
+  { value: "STUDY", label: "勉強" },
+  { value: "HEALTH", label: "健康" },
+  { value: "SHOPPING", label: "買い物" },
+  { value: "OTHER", label: "その他" },
 ];
 
 const PRIORITY_OPTIONS: Array<{ value: TodoPriority; label: string }> = [
-  { value: "HIGH", label: "High" },
-  { value: "MEDIUM", label: "Medium" },
-  { value: "LOW", label: "Low" },
+  { value: "HIGH", label: "高" },
+  { value: "MEDIUM", label: "中" },
+  { value: "LOW", label: "低" },
 ];
 
 function toIsoAtNoon(localDateInput: string) {
@@ -47,8 +47,8 @@ export default function NewTaskPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!title.trim()) return setError("Title is required.");
-    if (!dueDate) return setError("Due date is required.");
+    if (!title.trim()) return setError("件名は必須です。");
+    if (!dueDate) return setError("日付は必須です。");
 
     setError(null);
     setSaving(true);
@@ -68,13 +68,13 @@ export default function NewTaskPage() {
 
       if (!res.ok) {
         const body = (await res.json()) as { message?: string };
-        throw new Error(body.message ?? "Failed to create task.");
+        throw new Error(body.message ?? "タスク作成に失敗しました。");
       }
 
       router.push("/");
       router.refresh();
     } catch (e) {
-      const message = e instanceof Error ? e.message : "Failed to create task.";
+      const message = e instanceof Error ? e.message : "タスク作成に失敗しました。";
       setError(message);
       setSaving(false);
     }
@@ -86,35 +86,35 @@ export default function NewTaskPage() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#2f5f95]">
-              New Task
+              新規タスク
             </p>
-            <h1 className="mt-1 text-2xl font-bold text-[#132f54]">Create task</h1>
+            <h1 className="mt-1 text-2xl font-bold text-[#132f54]">タスク作成</h1>
           </div>
           <Link
             href="/"
             className="rounded-lg border border-[#c6d8ee] bg-[#edf5ff] px-3 py-1 text-xs font-semibold text-[#134b99] hover:brightness-95"
           >
-            Back
+            戻る
           </Link>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div>
             <label className="mb-1 block text-sm text-muted" htmlFor="title">
-              Subject
+              件名
             </label>
             <input
               id="title"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="e.g. Submit estimate to client"
+              placeholder="例: 見積もりを送付する"
               className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-4"
             />
           </div>
 
           <div>
             <label className="mb-1 block text-sm text-muted" htmlFor="dueDate">
-              Date
+              日付
             </label>
             <input
               id="dueDate"
@@ -127,14 +127,14 @@ export default function NewTaskPage() {
 
           <div>
             <label className="mb-1 block text-sm text-muted" htmlFor="memo">
-              Memo
+              メモ
             </label>
             <textarea
               id="memo"
               value={memo}
               onChange={(event) => setMemo(event.target.value)}
               rows={4}
-              placeholder="Optional details..."
+              placeholder="補足メモ（任意）"
               className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-4"
             />
           </div>
@@ -142,7 +142,7 @@ export default function NewTaskPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm text-muted" htmlFor="category">
-                Category
+                カテゴリ
               </label>
               <select
                 id="category"
@@ -160,7 +160,7 @@ export default function NewTaskPage() {
 
             <div>
               <label className="mb-1 block text-sm text-muted" htmlFor="priority">
-                Priority
+                重要度
               </label>
               <select
                 id="priority"
@@ -188,14 +188,14 @@ export default function NewTaskPage() {
               href="/"
               className="rounded-xl border border-[#cfdbeb] px-4 py-2 text-sm text-[#47658a] hover:bg-[#edf5ff]"
             >
-              Cancel
+              キャンセル
             </Link>
             <button
               type="submit"
               disabled={saving}
               className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {saving ? "Saving..." : "Create"}
+              {saving ? "保存中..." : "作成"}
             </button>
           </div>
         </form>

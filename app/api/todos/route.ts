@@ -116,8 +116,9 @@ export async function POST(request: Request) {
     return NextResponse.json(todo, { status: 201 });
   } catch (error) {
     console.error("POST /api/todos failed:", error);
+    const detail = error instanceof Error ? error.message : "unknown error";
     return NextResponse.json(
-      { message: "Failed to create todo." },
+      { message: `Failed to create todo. (${detail})` },
       { status: 500 },
     );
   }

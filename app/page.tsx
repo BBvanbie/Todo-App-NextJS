@@ -28,19 +28,19 @@ type Todo = {
 };
 
 const CATEGORY_LABEL: Record<TodoCategory, string> = {
-  WORK: "Work",
-  PRIVATE: "Private",
-  PROCEDURE: "Procedure",
-  STUDY: "Study",
-  HEALTH: "Health",
-  SHOPPING: "Shopping",
-  OTHER: "Other",
+  WORK: "仕事",
+  PRIVATE: "プライベート",
+  PROCEDURE: "手続き",
+  STUDY: "勉強",
+  HEALTH: "健康",
+  SHOPPING: "買い物",
+  OTHER: "その他",
 };
 
 const PRIORITY_LABEL: Record<TodoPriority, string> = {
-  HIGH: "High",
-  MEDIUM: "Medium",
-  LOW: "Low",
+  HIGH: "高",
+  MEDIUM: "中",
+  LOW: "低",
 };
 
 function formatDate(isoString: string) {
@@ -68,11 +68,11 @@ function getDueStatus(isoString: string): "ok" | "warning" | "danger" {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const twoDaysLater = new Date(today);
-  twoDaysLater.setDate(twoDaysLater.getDate() + 2);
+  const sevenDaysLater = new Date(today);
+  sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
 
   if (due < today) return "danger";
-  if (due <= twoDaysLater) return "warning";
+  if (due <= sevenDaysLater) return "warning";
   return "ok";
 }
 
@@ -80,6 +80,15 @@ function getCardTone(status: "ok" | "warning" | "danger") {
   if (status === "danger") return "border-[#f1a6ae] bg-[#ffeef0]";
   if (status === "warning") return "border-[#ffd18f] bg-[#fff6e9]";
   return "border-[#d7e1ee] bg-white/90";
+}
+
+async function getApiErrorMessage(response: Response, fallback: string) {
+  try {
+    const body = (await response.json()) as { message?: string };
+    return body.message ?? fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 export default function Home() {
@@ -109,7 +118,7 @@ export default function Home() {
         const data = (await res.json()) as Todo[];
         setTodos(data);
       } catch {
-        setError("Failed to fetch todos.");
+        setError("Todoの取得に失敗しました。");
       } finally {
         setLoading(false);
       }
@@ -150,6 +159,9 @@ export default function Home() {
   const overdueCount = pendingTodos.filter(
     (todo) => getDueStatus(todo.dueAt) === "danger",
   ).length;
+  const dueSoonCount = pendingTodos.filter(
+    (todo) => getDueStatus(todo.dueAt) === "warning",
+  ).length;
 
   const triggerCongrats = () => {
     setCongratsKey((prev) => prev + 1);
@@ -177,27 +189,27 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ completed: nextCompleted }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error(await getApiErrorMessage(res, "ステータス更新に失敗しました。"));
       const saved = (await res.json()) as Todo;
       setTodos((prev) => prev.map((item) => (item.id === todo.id ? saved : item)));
-    } catch {
+    } catch (e) {
       setTodos((prev) => prev.map((item) => (item.id === todo.id ? previous : item)));
-      setError("Failed to update status.");
+      setError(e instanceof Error ? e.message : "ステータス更新に失敗しました。");
     }
   };
 
   const handleDelete = async (todo: Todo) => {
-    if (!window.confirm(`Delete "${todo.title}"?`)) return;
+    if (!window.confirm(`「${todo.title}」を削除しますか？`)) return;
     const backup = todo;
     setTodos((prev) => prev.filter((item) => item.id !== todo.id));
     setError(null);
 
     try {
       const res = await fetch(`/api/todos/${todo.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
-    } catch {
+      if (!res.ok) throw new Error(await getApiErrorMessage(res, "削除に失敗しました。"));
+    } catch (e) {
       setTodos((prev) => [...prev, backup]);
-      setError("Failed to delete.");
+      setError(e instanceof Error ? e.message : "削除に失敗しました。");
     }
   };
 
@@ -224,8 +236,8 @@ export default function Home() {
   const handleEdit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!editing) return;
-    if (!editTitle.trim()) return setError("Title is required.");
-    if (!editDueDate) return setError("Due date is required.");
+    if (!editTitle.trim()) return setError("タイトルは必須です。");
+    if (!editDueDate) return setError("期限は必須です。");
 
     setError(null);
     setEditSaving(true);
@@ -255,14 +267,14 @@ export default function Home() {
           dueAt,
         }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error(await getApiErrorMessage(res, "Todoの更新に失敗しました。"));
       const saved = (await res.json()) as Todo;
       setTodos((prev) => prev.map((todo) => (todo.id === editing.id ? saved : todo)));
       closeEdit();
-    } catch {
+    } catch (e) {
       setTodos((prev) => prev.map((todo) => (todo.id === editing.id ? previous : todo)));
       setEditSaving(false);
-      setError("Failed to update todo.");
+      setError(e instanceof Error ? e.message : "Todoの更新に失敗しました。");
     }
   };
 
@@ -277,8 +289,8 @@ export default function Home() {
           role="status"
           aria-live="polite"
         >
-          <p className="text-xl font-bold tracking-tight text-[#0a6f4f]">congratulation</p>
-          <p className="text-sm text-[#1f7f61]">Great job, task completed.</p>
+          <p className="text-xl font-bold tracking-tight text-[#0a6f4f]">おめでとうございます</p>
+          <p className="text-sm text-[#1f7f61]">タスクを完了しました。</p>
         </div>
       )}
 
@@ -287,31 +299,35 @@ export default function Home() {
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#2f5f95]">
-                Task Radar
+                タスクレーダー
               </p>
-              <h1 className="mt-1 text-3xl font-bold tracking-tight text-[#0f1f35]">Next Todos</h1>
+              <h1 className="mt-1 text-3xl font-bold tracking-tight text-[#0f1f35]">Todoダッシュボード</h1>
               <p className="mt-2 text-sm text-muted">
-                Pending tasks are sorted by nearest due date.
+                期限まで7日以内は注意、期限切れは警告として表示します。
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <div className="rounded-xl bg-[#edf5ff] px-4 py-2 text-center">
-                <p className="text-xs text-[#4f6e94]">Pending</p>
+                <p className="text-xs text-[#4f6e94]">未完了</p>
                 <p className="text-lg font-bold text-[#0b4ea7]">{pendingTodos.length}</p>
               </div>
               <div className="rounded-xl bg-[#fff3e3] px-4 py-2 text-center">
-                <p className="text-xs text-[#8c5a14]">Overdue</p>
+                <p className="text-xs text-[#8c5a14]">7日以内</p>
+                <p className="text-lg font-bold text-[#b97a00]">{dueSoonCount}</p>
+              </div>
+              <div className="rounded-xl bg-[#ffe8ec] px-4 py-2 text-center">
+                <p className="text-xs text-[#9c2b39]">期限切れ警告</p>
                 <p className="text-lg font-bold text-[#b94d00]">{overdueCount}</p>
               </div>
               <div className="rounded-xl bg-[#e8fff6] px-4 py-2 text-center">
-                <p className="text-xs text-[#2d7160]">Completed</p>
+                <p className="text-xs text-[#2d7160]">完了</p>
                 <p className="text-lg font-bold text-[#127656]">{completedTodos.length}</p>
               </div>
               <Link
                 href="/tasks/new"
                 className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:brightness-110"
               >
-                Add Task
+                新規作成
               </Link>
             </div>
           </div>
@@ -319,16 +335,16 @@ export default function Home() {
 
         <section className="mt-5 glass-card rounded-3xl p-5">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-[#12325a]">Pending Tasks</h2>
+            <h2 className="text-lg font-semibold text-[#12325a]">未完了タスク</h2>
             <span className="rounded-full bg-[#edf5ff] px-3 py-1 text-xs font-semibold text-[#1157b2]">
-              Nearest due first
+              期限が近い順
             </span>
           </div>
 
           {loading ? (
-            <p className="py-8 text-sm text-muted">Loading...</p>
+            <p className="py-8 text-sm text-muted">読み込み中...</p>
           ) : pendingTodos.length === 0 ? (
-            <p className="py-8 text-sm text-muted">No pending tasks.</p>
+            <p className="py-8 text-sm text-muted">未完了タスクはありません。</p>
           ) : (
             <ul className="space-y-3">
               {pendingTodos.map((todo) => {
@@ -343,7 +359,7 @@ export default function Home() {
                         type="button"
                         onClick={() => void handleToggle(todo)}
                         className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[#9fb5cd] text-[#2f5f95] transition hover:bg-[#eaf2fc]"
-                        aria-label={`Mark ${todo.title} complete`}
+                        aria-label={`「${todo.title}」を完了にする`}
                       >
                         ✓
                       </button>
@@ -352,19 +368,23 @@ export default function Home() {
                         <p className="truncate text-sm font-semibold text-[#17355f]">{todo.title}</p>
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                           <span className="rounded-full bg-[#edf3fa] px-2 py-0.5 text-[#4e6785]">
-                            Due: {formatDate(todo.dueAt)}
+                            期限: {formatDate(todo.dueAt)}
                           </span>
                           <span className="rounded-full bg-[#eaf4ff] px-2 py-0.5 text-[#215792]">
                             {CATEGORY_LABEL[todo.category]}
                           </span>
                           <span className="rounded-full bg-[#f4ecff] px-2 py-0.5 text-[#61408c]">
-                            Priority: {PRIORITY_LABEL[todo.priority]}
+                            重要度: {PRIORITY_LABEL[todo.priority]}
                           </span>
                           {status === "warning" && (
-                            <span className="badge-status-warning rounded-full px-2 py-0.5">Warning</span>
+                            <span className="badge-status-warning rounded-full px-2 py-0.5">
+                              注意: 期限まで7日以内
+                            </span>
                           )}
                           {status === "danger" && (
-                            <span className="badge-status-danger rounded-full px-2 py-0.5">Overdue</span>
+                            <span className="badge-status-danger rounded-full px-2 py-0.5">
+                              警告: 期限切れ
+                            </span>
                           )}
                         </div>
                         {todo.memo && (
@@ -378,14 +398,14 @@ export default function Home() {
                           onClick={() => openEdit(todo)}
                           className="rounded-lg border border-[#c9d7e7] px-2 py-1 text-xs text-[#2d4f7d] hover:bg-[#edf5ff]"
                         >
-                          Edit
+                          編集
                         </button>
                         <button
                           type="button"
                           onClick={() => void handleDelete(todo)}
                           className="rounded-lg border border-[#f1c7cd] px-2 py-1 text-xs text-[#a2202d] hover:bg-[#fff0f3]"
                         >
-                          Delete
+                          削除
                         </button>
                       </div>
                     </div>
@@ -398,16 +418,16 @@ export default function Home() {
 
         <section className="mt-5 glass-card rounded-3xl p-5">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-[#12325a]">Completed Tasks</h2>
+            <h2 className="text-lg font-semibold text-[#12325a]">完了タスク</h2>
             <Link
               href="/history"
               className="rounded-lg border border-[#c6d8ee] bg-[#edf5ff] px-3 py-1 text-xs font-semibold text-[#134b99] hover:brightness-95"
             >
-              Open history
+              履歴を見る
             </Link>
           </div>
           {completedTodos.length === 0 ? (
-            <p className="py-6 text-sm text-muted">No completed tasks.</p>
+            <p className="py-6 text-sm text-muted">完了タスクはありません。</p>
           ) : (
             <ul className="space-y-3">
               {completedTodos.map((todo) => (
@@ -417,14 +437,14 @@ export default function Home() {
                       type="button"
                       onClick={() => void handleToggle(todo)}
                       className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[#8cd7be] bg-[#16a078] text-white"
-                      aria-label={`Mark ${todo.title} pending`}
+                      aria-label={`「${todo.title}」を未完了に戻す`}
                     >
                       ✓
                     </button>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-[#4a6a60] line-through">{todo.title}</p>
                       <p className="mt-1 text-xs text-[#5f7f74]">
-                        Completed: {formatDate(todo.completedAt ?? todo.updatedAt)}
+                        完了日: {formatDate(todo.completedAt ?? todo.updatedAt)}
                       </p>
                     </div>
                     <button
@@ -432,7 +452,7 @@ export default function Home() {
                       onClick={() => void handleDelete(todo)}
                       className="rounded-lg border border-[#f1c7cd] px-2 py-1 text-xs text-[#a2202d] hover:bg-[#fff0f3]"
                     >
-                      Delete
+                      削除
                     </button>
                   </div>
                 </li>
@@ -452,18 +472,18 @@ export default function Home() {
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#0f1f35]/45 px-4">
           <div className="glass-card w-full max-w-xl rounded-2xl p-5">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-[#17355f]">Edit task</h3>
+              <h3 className="text-lg font-semibold text-[#17355f]">タスク編集</h3>
               <button
                 type="button"
                 onClick={closeEdit}
                 className="rounded-lg border border-[#cfdbeb] px-2 py-1 text-xs text-[#47658a] hover:bg-[#edf5ff]"
               >
-                Close
+                閉じる
               </button>
             </div>
             <form onSubmit={handleEdit} className="space-y-3">
               <label className="block text-sm text-muted" htmlFor="editTitle">
-                Title
+                タイトル
               </label>
               <input
                 id="editTitle"
@@ -473,7 +493,7 @@ export default function Home() {
               />
 
               <label className="block text-sm text-muted" htmlFor="editDueAt">
-                Due date
+                期限
               </label>
               <input
                 id="editDueAt"
@@ -484,7 +504,7 @@ export default function Home() {
               />
 
               <label className="block text-sm text-muted" htmlFor="editMemo">
-                Memo
+                メモ
               </label>
               <textarea
                 id="editMemo"
@@ -497,7 +517,7 @@ export default function Home() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm text-muted" htmlFor="editCategory">
-                    Category
+                    カテゴリ
                   </label>
                   <select
                     id="editCategory"
@@ -514,7 +534,7 @@ export default function Home() {
                 </div>
                 <div>
                   <label className="block text-sm text-muted" htmlFor="editPriority">
-                    Priority
+                    重要度
                   </label>
                   <select
                     id="editPriority"
@@ -537,14 +557,14 @@ export default function Home() {
                   onClick={closeEdit}
                   className="rounded-xl border border-[#cfdbeb] px-4 py-2 text-sm text-[#47658a] hover:bg-[#edf5ff]"
                 >
-                  Cancel
+                  キャンセル
                 </button>
                 <button
                   type="submit"
                   disabled={editSaving}
                   className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {editSaving ? "Saving..." : "Save"}
+                  {editSaving ? "保存中..." : "保存"}
                 </button>
               </div>
             </form>
