@@ -45,9 +45,9 @@ const PRIORITY_LABEL: Record<TodoPriority, string> = {
 
 function formatDate(isoString: string) {
   return new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric",
     month: "2-digit",
     day: "2-digit",
-    weekday: "short",
   }).format(new Date(isoString));
 }
 
@@ -156,11 +156,11 @@ export default function Home() {
     [todos],
   );
 
-  const overdueCount = pendingTodos.filter(
-    (todo) => getDueStatus(todo.dueAt) === "danger",
-  ).length;
   const dueSoonCount = pendingTodos.filter(
     (todo) => getDueStatus(todo.dueAt) === "warning",
+  ).length;
+  const overdueCount = pendingTodos.filter(
+    (todo) => getDueStatus(todo.dueAt) === "danger",
   ).length;
 
   const triggerCongrats = () => {
@@ -189,7 +189,9 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ completed: nextCompleted }),
       });
-      if (!res.ok) throw new Error(await getApiErrorMessage(res, "ステータス更新に失敗しました。"));
+      if (!res.ok) {
+        throw new Error(await getApiErrorMessage(res, "ステータス更新に失敗しました。"));
+      }
       const saved = (await res.json()) as Todo;
       setTodos((prev) => prev.map((item) => (item.id === todo.id ? saved : item)));
     } catch (e) {
@@ -241,6 +243,7 @@ export default function Home() {
 
     setError(null);
     setEditSaving(true);
+
     const dueAt = toIsoAtNoon(editDueDate);
     const previous = editing;
     const optimistic: Todo = {
@@ -252,7 +255,6 @@ export default function Home() {
       dueAt,
       updatedAt: new Date().toISOString(),
     };
-
     setTodos((prev) => prev.map((todo) => (todo.id === editing.id ? optimistic : todo)));
 
     try {
@@ -301,7 +303,9 @@ export default function Home() {
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#2f5f95]">
                 タスクレーダー
               </p>
-              <h1 className="mt-1 text-3xl font-bold tracking-tight text-[#0f1f35]">Todoダッシュボード</h1>
+              <h1 className="mt-1 text-3xl font-bold tracking-tight text-[#0f1f35]">
+                Todoダッシュボード
+              </h1>
               <p className="mt-2 text-sm text-muted">
                 期限まで7日以内は注意、期限切れは警告として表示します。
               </p>
@@ -443,6 +447,7 @@ export default function Home() {
                     </button>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-[#4a6a60] line-through">{todo.title}</p>
+                      <p className="mt-1 text-xs text-[#5f7f74]">期限: {formatDate(todo.dueAt)}</p>
                       <p className="mt-1 text-xs text-[#5f7f74]">
                         完了日: {formatDate(todo.completedAt ?? todo.updatedAt)}
                       </p>

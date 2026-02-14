@@ -69,9 +69,7 @@ export default async function HistoryPage() {
                   </span>
                 </div>
                 {todo.memo && <p className="mt-2 text-xs text-[#35557c]">{todo.memo}</p>}
-                <p className="mt-1 text-xs text-[#5c7392]">
-                  期限: {formatDate(todo.dueAt.toISOString())}
-                </p>
+                <p className="mt-1 text-xs text-[#5c7392]">期限: {formatDate(todo.dueAt.toISOString())}</p>
                 <p className="mt-1 text-xs text-[#5c7392]">
                   完了日: {formatDate((todo.completedAt ?? todo.updatedAt).toISOString())}
                 </p>
