@@ -84,29 +84,43 @@ function toJstMidnightIso(dateInput: string) {
   return new Date(`${dateInput}T00:00:00+09:00`).toISOString();
 }
 
+function getTokyoYmd(value: string | Date) {
+  const date = typeof value === "string" ? new Date(value) : value;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const year = parts.find((p) => p.type === "year")?.value ?? "1970";
+  const month = parts.find((p) => p.type === "month")?.value ?? "01";
+  const day = parts.find((p) => p.type === "day")?.value ?? "01";
+  return `${year}-${month}-${day}`;
+}
+
+function getTokyoYmdWithOffset(days: number) {
+  const target = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  return getTokyoYmd(target);
+}
+
 function getDueStatus(isoString: string): "ok" | "warning" | "danger" {
-  const due = new Date(isoString);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const in7 = new Date(today);
-  in7.setDate(in7.getDate() + 7);
-  if (due < today) return "danger";
-  if (due <= in7) return "warning";
+  const dueKey = getTokyoYmd(isoString);
+  const todayKey = getTokyoYmdWithOffset(0);
+  const in7Key = getTokyoYmdWithOffset(7);
+  if (dueKey < todayKey) return "danger";
+  if (dueKey <= in7Key) return "warning";
   return "ok";
 }
 
 function matchesDueFilter(todo: Todo, filter: DueFilter) {
   if (filter === "ALL") return true;
-  const due = new Date(todo.dueAt);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const in7 = new Date(today);
-  in7.setDate(in7.getDate() + 7);
-  if (filter === "TODAY") return due >= today && due < tomorrow;
-  if (filter === "IN_7_DAYS") return due >= today && due <= in7;
-  return due < today;
+  const dueKey = getTokyoYmd(todo.dueAt);
+  const todayKey = getTokyoYmdWithOffset(0);
+  const in7Key = getTokyoYmdWithOffset(7);
+  if (filter === "TODAY") return dueKey === todayKey;
+  if (filter === "IN_7_DAYS") return dueKey >= todayKey && dueKey <= in7Key;
+  return dueKey < todayKey;
 }
 
 function getCardTone(status: "ok" | "warning" | "danger") {
@@ -279,13 +293,13 @@ export default function Home() {
 
   const handleDelete = async (todo: Todo) => {
     if (!window.confirm(`「${todo.title}」を削除しますか？`)) return;
-    const previous = todo;
+    const snapshot = todos;
     setTodos((list) => list.filter((item) => item.id !== todo.id));
     try {
       const res = await fetch(`/api/todos/${todo.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(await getApiErrorMessage(res, "削除に失敗しました。"));
     } catch (e) {
-      setTodos((list) => [previous, ...list]);
+      setTodos(snapshot);
       setError(e instanceof Error ? e.message : "削除に失敗しました。");
     }
   };
@@ -480,7 +494,7 @@ export default function Home() {
                 return (
                   <li key={todo.id} className={`rounded-2xl border p-3 shadow-[0_8px_20px_-20px_#0d315f] ${getCardTone(status)}`}>
                     <div className="flex items-start gap-3">
-                      <button type="button" onClick={() => void handleToggle(todo)} className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[#9fb5cd]">□</button>
+                      <button type="button" onClick={() => void handleToggle(todo)} className="mt-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-[#9fb5cd]" aria-label={`「${todo.title}」を完了にする`}>□</button>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-[#17355f]">{todo.title}</p>
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
@@ -517,7 +531,7 @@ export default function Home() {
               {completedTodos.map((todo) => (
                 <li key={todo.id} className="rounded-2xl border border-[#d0e8df] bg-[#f5fffa] p-3">
                   <div className="flex items-start gap-3">
-                    <button type="button" onClick={() => void handleToggle(todo)} className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[#8cd7be] bg-[#16a078] text-white">✓</button>
+                    <button type="button" onClick={() => void handleToggle(todo)} className="mt-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-[#8cd7be] bg-[#16a078] text-white" aria-label={`「${todo.title}」を未完了に戻す`}>✓</button>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-[#4a6a60] line-through">{todo.title}</p>
                       <p className="mt-1 text-xs text-[#5f7f74]">期限: {formatDate(todo.dueAt)}</p>

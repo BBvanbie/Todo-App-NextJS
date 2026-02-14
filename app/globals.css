@@ -36,6 +36,11 @@ body {
   font-family: var(--font-sans);
 }
 
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 45%, #ffffff 55%);
+  outline-offset: 2px;
+}
+
 .glass-card {
   background: color-mix(in srgb, var(--surface) 86%, #dce7f5 14%);
   border: 1px solid #d4e1f0;

@@ -31,8 +31,8 @@ const PRIORITY_OPTIONS: Array<{ value: TodoPriority; label: string }> = [
   { value: "LOW", label: "低" },
 ];
 
-function toIsoAtNoon(localDateInput: string) {
-  return new Date(`${localDateInput}T12:00:00`).toISOString();
+function toJstMidnightIso(localDateInput: string) {
+  return new Date(`${localDateInput}T00:00:00+09:00`).toISOString();
 }
 
 export default function NewTaskPage() {
@@ -59,7 +59,7 @@ export default function NewTaskPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
-          dueAt: toIsoAtNoon(dueDate),
+          dueAt: toJstMidnightIso(dueDate),
           memo: memo.trim() || null,
           category,
           priority,
