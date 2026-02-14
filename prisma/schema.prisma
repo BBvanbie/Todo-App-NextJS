@@ -29,6 +29,13 @@ enum TodoPriority {
   LOW
 }
 
+enum NotificationType {
+  DUE_IN_7_DAYS
+  DUE_IN_3_DAYS
+  DUE_TODAY
+  OVERDUE_3_DAYS
+}
+
 model Todo {
   id          Int          @id @default(autoincrement())
   title       String
@@ -40,6 +47,20 @@ model Todo {
   completedAt DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  notifications Notification[]
 
   @@index([completed, dueAt, completedAt, category, priority])
+}
+
+model Notification {
+  id          Int              @id @default(autoincrement())
+  todoId      Int
+  type        NotificationType
+  message     String
+  createdAt   DateTime         @default(now())
+  readAt      DateTime?
+  todo        Todo             @relation(fields: [todoId], references: [id], onDelete: Cascade)
+
+  @@unique([todoId, type])
+  @@index([readAt, createdAt])
 }

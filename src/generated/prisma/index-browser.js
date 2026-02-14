@@ -133,6 +133,15 @@ exports.Prisma.TodoScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.NotificationScalarFieldEnum = {
+  id: 'id',
+  todoId: 'todoId',
+  type: 'type',
+  message: 'message',
+  createdAt: 'createdAt',
+  readAt: 'readAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -163,8 +172,16 @@ exports.TodoPriority = exports.$Enums.TodoPriority = {
   LOW: 'LOW'
 };
 
+exports.NotificationType = exports.$Enums.NotificationType = {
+  DUE_IN_7_DAYS: 'DUE_IN_7_DAYS',
+  DUE_IN_3_DAYS: 'DUE_IN_3_DAYS',
+  DUE_TODAY: 'DUE_TODAY',
+  OVERDUE_3_DAYS: 'OVERDUE_3_DAYS'
+};
+
 exports.Prisma.ModelName = {
-  Todo: 'Todo'
+  Todo: 'Todo',
+  Notification: 'Notification'
 };
 
 /**

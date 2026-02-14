@@ -13,6 +13,9 @@ type TodoCategory =
   | "OTHER";
 
 type TodoPriority = "HIGH" | "MEDIUM" | "LOW";
+type DueFilter = "ALL" | "TODAY" | "IN_7_DAYS" | "OVERDUE";
+type SelectableCategory = "ALL" | TodoCategory;
+type SelectablePriority = "ALL" | TodoPriority;
 
 type Todo = {
   id: number;
@@ -25,6 +28,21 @@ type Todo = {
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+type AppNotification = {
+  id: number;
+  todoId: number;
+  type: "DUE_IN_7_DAYS" | "DUE_IN_3_DAYS" | "DUE_TODAY" | "OVERDUE_3_DAYS";
+  message: string;
+  createdAt: string;
+  readAt: string | null;
+  todo: {
+    id: number;
+    title: string;
+    dueAt: string;
+    completed: boolean;
+  };
 };
 
 const CATEGORY_LABEL: Record<TodoCategory, string> = {
@@ -41,6 +59,13 @@ const PRIORITY_LABEL: Record<TodoPriority, string> = {
   HIGH: "高",
   MEDIUM: "中",
   LOW: "低",
+};
+
+const DUE_FILTER_LABEL: Record<DueFilter, string> = {
+  ALL: "すべて",
+  TODAY: "今日まで",
+  IN_7_DAYS: "7日以内",
+  OVERDUE: "期限切れ",
 };
 
 function formatDate(isoString: string) {
@@ -67,7 +92,6 @@ function getDueStatus(isoString: string): "ok" | "warning" | "danger" {
   const due = new Date(isoString);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
   const sevenDaysLater = new Date(today);
   sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
 
@@ -80,6 +104,22 @@ function getCardTone(status: "ok" | "warning" | "danger") {
   if (status === "danger") return "border-[#f1a6ae] bg-[#ffeef0]";
   if (status === "warning") return "border-[#ffd18f] bg-[#fff6e9]";
   return "border-[#d7e1ee] bg-white/90";
+}
+
+function matchesDueFilter(todo: Todo, dueFilter: DueFilter): boolean {
+  if (dueFilter === "ALL") return true;
+
+  const due = new Date(todo.dueAt);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const sevenDaysLater = new Date(today);
+  sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+
+  if (dueFilter === "TODAY") return due >= today && due < tomorrow;
+  if (dueFilter === "IN_7_DAYS") return due >= today && due <= sevenDaysLater;
+  return due < today;
 }
 
 async function getApiErrorMessage(response: Response, fallback: string) {
@@ -95,6 +135,14 @@ export default function Home() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [filterCategory, setFilterCategory] = useState<SelectableCategory>("ALL");
+  const [filterPriority, setFilterPriority] = useState<SelectablePriority>("ALL");
+  const [filterDue, setFilterDue] = useState<DueFilter>("ALL");
+
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [notificationOpen, setNotificationOpen] = useState(false);
 
   const [editing, setEditing] = useState<Todo | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -123,7 +171,22 @@ export default function Home() {
         setLoading(false);
       }
     };
+
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch("/api/notifications", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as AppNotification[];
+        setNotifications(data);
+      } catch {
+        // ignore
+      }
+    };
+
     void fetchTodos();
+    void fetchNotifications();
+    const timer = window.setInterval(() => void fetchNotifications(), 60_000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -132,36 +195,46 @@ export default function Home() {
     };
   }, []);
 
+  const unreadCount = notifications.filter((n) => !n.readAt).length;
+
+  const filteredTodos = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return todos.filter((todo) => {
+      const searchTarget = `${todo.title} ${todo.memo ?? ""}`.toLowerCase();
+      const searchOk = q.length === 0 || searchTarget.includes(q);
+      const categoryOk = filterCategory === "ALL" || todo.category === filterCategory;
+      const priorityOk = filterPriority === "ALL" || todo.priority === filterPriority;
+      const dueOk = matchesDueFilter(todo, filterDue);
+      return searchOk && categoryOk && priorityOk && dueOk;
+    });
+  }, [filterCategory, filterDue, filterPriority, search, todos]);
+
   const pendingTodos = useMemo(
     () =>
-      todos
+      filteredTodos
         .filter((todo) => !todo.completed)
         .sort(
           (a, b) =>
             new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime() ||
             new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
         ),
-    [todos],
+    [filteredTodos],
   );
 
   const completedTodos = useMemo(
     () =>
-      todos
+      filteredTodos
         .filter((todo) => todo.completed)
         .sort(
           (a, b) =>
             new Date(b.completedAt ?? b.updatedAt).getTime() -
             new Date(a.completedAt ?? a.updatedAt).getTime(),
         ),
-    [todos],
+    [filteredTodos],
   );
 
-  const dueSoonCount = pendingTodos.filter(
-    (todo) => getDueStatus(todo.dueAt) === "warning",
-  ).length;
-  const overdueCount = pendingTodos.filter(
-    (todo) => getDueStatus(todo.dueAt) === "danger",
-  ).length;
+  const dueSoonCount = pendingTodos.filter((todo) => getDueStatus(todo.dueAt) === "warning").length;
+  const overdueCount = pendingTodos.filter((todo) => getDueStatus(todo.dueAt) === "danger").length;
 
   const triggerCongrats = () => {
     setCongratsKey((prev) => prev + 1);
@@ -189,9 +262,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ completed: nextCompleted }),
       });
-      if (!res.ok) {
-        throw new Error(await getApiErrorMessage(res, "ステータス更新に失敗しました。"));
-      }
+      if (!res.ok) throw new Error(await getApiErrorMessage(res, "ステータス更新に失敗しました。"));
       const saved = (await res.json()) as Todo;
       setTodos((prev) => prev.map((item) => (item.id === todo.id ? saved : item)));
     } catch (e) {
@@ -212,6 +283,33 @@ export default function Home() {
     } catch (e) {
       setTodos((prev) => [...prev, backup]);
       setError(e instanceof Error ? e.message : "削除に失敗しました。");
+    }
+  };
+
+  const markNotificationRead = async (id: number) => {
+    const previous = notifications;
+    setNotifications((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, readAt: item.readAt ?? new Date().toISOString() } : item,
+      ),
+    );
+    try {
+      const res = await fetch(`/api/notifications/${id}/read`, { method: "PATCH" });
+      if (!res.ok) throw new Error();
+    } catch {
+      setNotifications(previous);
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    const previous = notifications;
+    const nowIso = new Date().toISOString();
+    setNotifications((prev) => prev.map((item) => ({ ...item, readAt: item.readAt ?? nowIso })));
+    try {
+      const res = await fetch("/api/notifications/read-all", { method: "PATCH" });
+      if (!res.ok) throw new Error();
+    } catch {
+      setNotifications(previous);
     }
   };
 
@@ -310,6 +408,7 @@ export default function Home() {
                 期限まで7日以内は注意、期限切れは警告として表示します。
               </p>
             </div>
+
             <div className="flex flex-wrap items-center gap-3">
               <div className="rounded-xl bg-[#edf5ff] px-4 py-2 text-center">
                 <p className="text-xs text-[#4f6e94]">未完了</p>
@@ -327,6 +426,19 @@ export default function Home() {
                 <p className="text-xs text-[#2d7160]">完了</p>
                 <p className="text-lg font-bold text-[#127656]">{completedTodos.length}</p>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setNotificationOpen((prev) => !prev)}
+                className="relative rounded-xl border border-[#c8d8ea] bg-white px-3 py-2 text-sm text-[#2b4f7a] hover:bg-[#edf5ff]"
+              >
+                通知
+                {unreadCount > 0 && (
+                  <span className="ml-2 rounded-full bg-[#d62246] px-2 py-0.5 text-xs text-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
               <Link
                 href="/tasks/new"
                 className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:brightness-110"
@@ -335,20 +447,109 @@ export default function Home() {
               </Link>
             </div>
           </div>
+
+          {notificationOpen && (
+            <div className="mt-4 rounded-2xl border border-[#cedded] bg-white/95 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-[#17355f]">通知一覧</h3>
+                <button
+                  type="button"
+                  onClick={() => void markAllNotificationsRead()}
+                  className="rounded-lg border border-[#c9d7e7] px-2 py-1 text-xs text-[#2d4f7d] hover:bg-[#edf5ff]"
+                >
+                  すべて既読
+                </button>
+              </div>
+              {notifications.length === 0 ? (
+                <p className="text-xs text-muted">通知はありません。</p>
+              ) : (
+                <ul className="space-y-2">
+                  {notifications.map((item) => (
+                    <li
+                      key={item.id}
+                      className={`rounded-xl border px-3 py-2 ${
+                        item.readAt
+                          ? "border-[#dde7f3] bg-[#f8fbff]"
+                          : "border-[#ffd2d9] bg-[#fff4f6]"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm text-[#17355f]">{item.message}</p>
+                          <p className="mt-1 text-xs text-[#5c7392]">
+                            作成: {formatDate(item.createdAt)} / 期限: {formatDate(item.todo.dueAt)}
+                          </p>
+                        </div>
+                        {!item.readAt && (
+                          <button
+                            type="button"
+                            onClick={() => void markNotificationRead(item.id)}
+                            className="rounded-lg border border-[#c9d7e7] px-2 py-1 text-xs text-[#2d4f7d] hover:bg-[#edf5ff]"
+                          >
+                            既読
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </section>
 
         <section className="mt-5 glass-card rounded-3xl p-5">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <h2 className="text-lg font-semibold text-[#12325a]">未完了タスク</h2>
-            <span className="rounded-full bg-[#edf5ff] px-3 py-1 text-xs font-semibold text-[#1157b2]">
-              期限が近い順
-            </span>
+            <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-4">
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="件名・メモで検索"
+                className="rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-4"
+              />
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value as SelectableCategory)}
+                className="rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-4"
+              >
+                <option value="ALL">カテゴリ: すべて</option>
+                {Object.entries(CATEGORY_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filterPriority}
+                onChange={(e) => setFilterPriority(e.target.value as SelectablePriority)}
+                className="rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-4"
+              >
+                <option value="ALL">重要度: すべて</option>
+                {Object.entries(PRIORITY_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filterDue}
+                onChange={(e) => setFilterDue(e.target.value as DueFilter)}
+                className="rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-4"
+              >
+                {Object.entries(DUE_FILTER_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    期限: {label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {loading ? (
             <p className="py-8 text-sm text-muted">読み込み中...</p>
           ) : pendingTodos.length === 0 ? (
-            <p className="py-8 text-sm text-muted">未完了タスクはありません。</p>
+            <p className="py-8 text-sm text-muted">条件に一致する未完了タスクはありません。</p>
           ) : (
             <ul className="space-y-3">
               {pendingTodos.map((todo) => {
@@ -431,7 +632,7 @@ export default function Home() {
             </Link>
           </div>
           {completedTodos.length === 0 ? (
-            <p className="py-6 text-sm text-muted">完了タスクはありません。</p>
+            <p className="py-6 text-sm text-muted">条件に一致する完了タスクはありません。</p>
           ) : (
             <ul className="space-y-3">
               {completedTodos.map((todo) => (
