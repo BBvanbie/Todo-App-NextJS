@@ -16,6 +16,10 @@
 - DB: Neon PostgreSQL + Prisma（HTTPモード）
 - 更新系: 一部Raw SQL併用（HTTPモード制約対応）
 - 共通エラー: `code/message/details/requestId` + `x-request-id`
+- 認証安定化:
+  - secret参照は `AUTH_SECRET / NEXTAUTH_SECRET / AUTHJS_SECRET` をフォールバック
+  - NextAuthルートは `runtime=nodejs` 固定
+  - middlewareのtoken読取は例外時に `null` フォールバック（500回避）
 
 ## 3. データモデル（主要）
 - `User`: `email`, `passwordHash`, `displayName`, `role`
@@ -65,6 +69,9 @@
 ## 8. デプロイ状態
 - GitHub: `origin/main` へ push 済み（最新コミット反映）
 - Vercel: Git連携で `main` 自動デプロイ設定を確認済み
+- 本番障害対応:
+  - ログイン後の `Server configuration` を解消済み
+  - 最新修正でログイン〜ホーム遷移は正常動作
 
 ## 9. 既知の未実装領域
 - Workspace / Invite / Member（チーム基盤）

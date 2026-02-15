@@ -38,10 +38,16 @@
 ### 1-6. デプロイ運用
 - GitHub `main` push 完了
 - VercelのGit連携自動反映設定を確認済み
+- 本番障害ホットフィックスを適用
+  - middlewareのtoken読取を例外安全化
+  - `AUTH_SECRET / NEXTAUTH_SECRET / AUTHJS_SECRET` フォールバック
+  - NextAuthルートを `nodejs runtime` 固定
+  - ログイン時の `Server configuration` エラー解消
 
 ## 2. 進行中
 - ダッシュボード文言/レイアウトの微調整（継続）
 - 監査ログの項目拡張（必要時）
+- 本番監視の補強（失敗APIの早期検知）
 
 ## 3. 未着手（優先順）
 1. Workspace / Invite / Member のチーム基盤
