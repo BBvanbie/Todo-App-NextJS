@@ -5,6 +5,13 @@ import type { NextRequest } from "next/server";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+  const readToken = async () => {
+    try {
+      return await getToken({ req: request, secret: authSecret });
+    } catch {
+      return null;
+    }
+  };
 
   if (pathname.startsWith("/api/auth/")) {
     return NextResponse.next();
@@ -13,14 +20,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
   if (pathname === "/login" || pathname === "/register") {
-    const token = await getToken({ req: request, secret: authSecret });
+    const token = await readToken();
     if (token?.userId) {
       return NextResponse.redirect(new URL("/", request.url));
     }
     return NextResponse.next();
   }
 
-  const token = await getToken({ req: request, secret: authSecret });
+  const token = await readToken();
   if (!token?.userId) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
