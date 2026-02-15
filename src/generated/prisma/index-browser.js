@@ -120,8 +120,57 @@ exports.Prisma.TransactionIsolationLevel = makeStrictEnum({
   Serializable: 'Serializable'
 });
 
+exports.Prisma.UserScalarFieldEnum = {
+  id: 'id',
+  email: 'email',
+  passwordHash: 'passwordHash',
+  displayName: 'displayName',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.AccountScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  type: 'type',
+  provider: 'provider',
+  providerAccountId: 'providerAccountId',
+  refresh_token: 'refresh_token',
+  access_token: 'access_token',
+  expires_at: 'expires_at',
+  token_type: 'token_type',
+  scope: 'scope',
+  id_token: 'id_token',
+  session_state: 'session_state'
+};
+
+exports.Prisma.SessionScalarFieldEnum = {
+  id: 'id',
+  sessionToken: 'sessionToken',
+  userId: 'userId',
+  expires: 'expires'
+};
+
+exports.Prisma.VerificationTokenScalarFieldEnum = {
+  identifier: 'identifier',
+  token: 'token',
+  expires: 'expires'
+};
+
+exports.Prisma.AuthenticatorScalarFieldEnum = {
+  credentialID: 'credentialID',
+  userId: 'userId',
+  providerAccountId: 'providerAccountId',
+  credentialPublicKey: 'credentialPublicKey',
+  counter: 'counter',
+  credentialDeviceType: 'credentialDeviceType',
+  credentialBackedUp: 'credentialBackedUp',
+  transports: 'transports'
+};
+
 exports.Prisma.TodoScalarFieldEnum = {
   id: 'id',
+  userId: 'userId',
   title: 'title',
   memo: 'memo',
   category: 'category',
@@ -133,9 +182,17 @@ exports.Prisma.TodoScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.TodoEditHistoryScalarFieldEnum = {
+  id: 'id',
+  todoId: 'todoId',
+  userId: 'userId',
+  editedAt: 'editedAt'
+};
+
 exports.Prisma.NotificationScalarFieldEnum = {
   id: 'id',
   todoId: 'todoId',
+  userId: 'userId',
   type: 'type',
   message: 'message',
   createdAt: 'createdAt',
@@ -180,7 +237,13 @@ exports.NotificationType = exports.$Enums.NotificationType = {
 };
 
 exports.Prisma.ModelName = {
+  User: 'User',
+  Account: 'Account',
+  Session: 'Session',
+  VerificationToken: 'VerificationToken',
+  Authenticator: 'Authenticator',
   Todo: 'Todo',
+  TodoEditHistory: 'TodoEditHistory',
   Notification: 'Notification'
 };
 

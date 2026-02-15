@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { formatDate, type Todo } from "./model";
 
 type CompletedTodosSectionProps = {
@@ -7,54 +7,58 @@ type CompletedTodosSectionProps = {
   onDelete: (todo: Todo) => void;
 };
 
-export function CompletedTodosSection({
-  todos,
-  onToggle,
-  onDelete,
-}: CompletedTodosSectionProps) {
+export function CompletedTodosSection({ todos, onToggle, onDelete }: CompletedTodosSectionProps) {
   return (
-    <section className="mt-5 glass-card rounded-3xl p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-[#12325a]">完了タスク</h2>
+    <section className="mt-6 glass-card rounded-[28px] border border-[#cde8dc] bg-[linear-gradient(180deg,#f6fffb_0%,#effaf5_100%)] p-5 md:p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#4a8d76]">Completed Archive</p>
+          <h2 className="mt-1 text-xl font-bold text-[#1b4f40]">完了タスク</h2>
+        </div>
         <Link
           href="/history"
-          className="rounded-lg border border-[#c6d8ee] bg-[#edf5ff] px-3 py-1 text-xs font-semibold text-[#134b99]"
+          className="rounded-lg border border-[#b9dfcf] bg-white px-3 py-1.5 text-xs font-semibold text-[#236852]"
         >
           履歴を見る
         </Link>
       </div>
+
       {todos.length === 0 ? (
-        <p className="py-6 text-sm text-muted">完了タスクはありません。</p>
+        <p className="py-6 text-sm text-[#557c6f]">完了タスクはまだありません。</p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="grid grid-cols-1 gap-2.5">
           {todos.map((todo) => (
-            <li
-              key={todo.id}
-              className="rounded-2xl border border-[#d0e8df] bg-[#f5fffa] p-3"
-            >
-              <div className="flex items-start gap-3">
-                <button
-                  type="button"
-                  onClick={() => onToggle(todo)}
-                  className="mt-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-[#8cd7be] bg-[#16a078] text-white"
-                  aria-label={`「${todo.title}」を未完了に戻す`}
-                >
-                  ✓
-                </button>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-[#4a6a60] line-through">{todo.title}</p>
-                  <p className="mt-1 text-xs text-[#5f7f74]">期限: {formatDate(todo.dueAt)}</p>
-                  <p className="mt-1 text-xs text-[#5f7f74]">
-                    完了日: {formatDate(todo.completedAt ?? todo.updatedAt)}
-                  </p>
+            <li key={todo.id} className="rounded-2xl border border-[#cde8dc] bg-white/85 p-3">
+              <div className="space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="line-clamp-2 text-sm text-[#4a6a60] line-through">{todo.title}</p>
+                  <span className="shrink-0 rounded-full bg-[#dcf6eb] px-2 py-0.5 text-[10px] font-semibold text-[#1d7a5f]">
+                    完了
+                  </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onDelete(todo)}
-                  className="rounded-lg border border-[#f1c7cd] px-2 py-1 text-xs"
-                >
-                  削除
-                </button>
+
+                <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                  <div className="rounded-lg bg-[#edf7f2] px-2 py-1 text-[#467564]">期限: {formatDate(todo.dueAt)}</div>
+                  <div className="rounded-lg bg-[#edf7f2] px-2 py-1 text-[#467564]">完了日: {formatDate(todo.completedAt ?? todo.updatedAt)}</div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => onToggle(todo)}
+                    className="rounded-lg border border-[#78c6aa] bg-[#14a174] px-2 py-1 text-[11px] font-semibold text-white"
+                    aria-label={`「${todo.title}」を未完了に戻す`}
+                  >
+                    未完了に戻す
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(todo)}
+                    className="rounded-lg border border-[#f1c7cd] bg-[#fff7f8] px-2 py-1 text-[11px] text-[#9b2835]"
+                  >
+                    削除
+                  </button>
+                </div>
               </div>
             </li>
           ))}

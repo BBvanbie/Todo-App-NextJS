@@ -1,51 +1,42 @@
 import { NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
 
-function unauthorized() {
-  return new NextResponse("Authentication required.", {
-    status: 401,
-    headers: {
-      "WWW-Authenticate": 'Basic realm="Secure Area", charset="UTF-8"',
-    },
-  });
-}
-
-function parseBasicAuth(authorization: string | null) {
-  if (!authorization?.startsWith("Basic ")) return null;
-  const base64 = authorization.slice("Basic ".length).trim();
-  if (!base64) return null;
-
-  try {
-    const decoded = atob(base64);
-    const separator = decoded.indexOf(":");
-    if (separator < 0) return null;
-    return {
-      username: decoded.slice(0, separator),
-      password: decoded.slice(separator + 1),
-    };
-  } catch {
-    return null;
-  }
-}
-
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  if (pathname.startsWith("/api/auth/")) {
+    return NextResponse.next();
+  }
   if (pathname.startsWith("/api/cron/")) {
     return NextResponse.next();
   }
-
-  const user = process.env.BASIC_AUTH_USER;
-  const pass = process.env.BASIC_AUTH_PASSWORD;
-  if (!user || !pass) {
+  if (pathname === "/login" || pathname === "/register") {
+    const token = await getToken({ req: request, secret: process.env.AUTH_SECRET });
+    if (token?.userId) {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
     return NextResponse.next();
   }
 
-  const credentials = parseBasicAuth(request.headers.get("authorization"));
-  if (!credentials) return unauthorized();
+  const token = await getToken({ req: request, secret: process.env.AUTH_SECRET });
+  if (!token?.userId) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    }
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
 
-  if (credentials.username !== user || credentials.password !== pass) {
-    return unauthorized();
+  if (pathname.startsWith("/admin")) {
+    if (token.role !== "ADMIN") {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+  }
+
+  if (pathname.startsWith("/api/admin/")) {
+    if (token.role !== "ADMIN") {
+      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
+    }
   }
 
   return NextResponse.next();

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAuthenticatedUserId } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { TodoCategory, TodoPriority } from "@/src/generated/prisma";
 
@@ -55,6 +56,11 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const userId = await getAuthenticatedUserId();
+  if (!userId) {
+    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+  }
+
   const { id } = await params;
   const todoId = parseId(id);
   if (!todoId) {
@@ -152,29 +158,71 @@ export async function PATCH(
       );
     }
 
-    const existing = await prisma.todo.findUnique({
-      where: { id: todoId },
-      select: { id: true },
-    });
-    if (!existing) {
+    const setClauses: string[] = [];
+    const values: unknown[] = [];
+
+    if (data.title !== undefined) {
+      values.push(data.title);
+      setClauses.push(`"title" = $${values.length}`);
+    }
+    if (data.memo !== undefined) {
+      values.push(data.memo);
+      setClauses.push(`"memo" = $${values.length}`);
+    }
+    if (data.category !== undefined) {
+      values.push(data.category);
+      setClauses.push(`"category" = $${values.length}::"TodoCategory"`);
+    }
+    if (data.priority !== undefined) {
+      values.push(data.priority);
+      setClauses.push(`"priority" = $${values.length}::"TodoPriority"`);
+    }
+    if (data.completed !== undefined) {
+      values.push(data.completed);
+      setClauses.push(`"completed" = $${values.length}`);
+    }
+    if (data.dueAt !== undefined) {
+      values.push(data.dueAt);
+      setClauses.push(`"dueAt" = $${values.length}`);
+    }
+    if (data.completedAt !== undefined) {
+      values.push(data.completedAt);
+      setClauses.push(`"completedAt" = $${values.length}`);
+    }
+
+    values.push(todoId);
+    const idIndex = values.length;
+    values.push(userId);
+    const userIdIndex = values.length;
+
+    const updatedCount = await prisma.$executeRawUnsafe(
+      `
+      UPDATE "Todo"
+      SET ${setClauses.join(", ")},
+          "updatedAt" = NOW()
+      WHERE "id" = $${idIndex}
+        AND "userId" = $${userIdIndex}
+      `,
+      ...values,
+    );
+
+    if (updatedCount === 0) {
       return NextResponse.json({ message: "Todo not found." }, { status: 404 });
     }
 
-    const todo = await prisma.$transaction(async (tx) => {
-      const updatedTodo = await tx.todo.update({
-        where: { id: todoId },
-        data,
-      });
+    if (shouldLogEdit) {
+      await prisma.$executeRaw`
+        INSERT INTO "TodoEditHistory" ("todoId", "userId")
+        VALUES (${todoId}, ${userId})
+      `;
+    }
 
-      if (shouldLogEdit) {
-        await tx.$executeRaw`
-          INSERT INTO "TodoEditHistory" ("todoId")
-          VALUES (${todoId})
-        `;
-      }
-
-      return updatedTodo;
+    const todo = await prisma.todo.findFirst({
+      where: { id: todoId, userId },
     });
+    if (!todo) {
+      return NextResponse.json({ message: "Todo not found." }, { status: 404 });
+    }
 
     return NextResponse.json(todo);
   } catch (error) {
@@ -191,6 +239,11 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const userId = await getAuthenticatedUserId();
+  if (!userId) {
+    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+  }
+
   const { id } = await params;
   const todoId = parseId(id);
   if (!todoId) {
@@ -198,8 +251,8 @@ export async function DELETE(
   }
 
   try {
-    const existing = await prisma.todo.findUnique({
-      where: { id: todoId },
+    const existing = await prisma.todo.findFirst({
+      where: { id: todoId, userId },
       select: { id: true },
     });
     if (!existing) {

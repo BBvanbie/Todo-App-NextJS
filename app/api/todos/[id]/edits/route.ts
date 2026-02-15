@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAuthenticatedUserId } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 function parseId(id: string): number | null {
@@ -11,6 +12,11 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const userId = await getAuthenticatedUserId();
+  if (!userId) {
+    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+  }
+
   const { id } = await params;
   const todoId = parseId(id);
   if (!todoId) {
@@ -18,23 +24,20 @@ export async function GET(
   }
 
   try {
-    const existing = await prisma.todo.findUnique({
-      where: { id: todoId },
+    const existing = await prisma.todo.findFirst({
+      where: { id: todoId, userId },
       select: { id: true },
     });
     if (!existing) {
       return NextResponse.json({ message: "Todo not found." }, { status: 404 });
     }
 
-    const histories = await prisma.$queryRaw<
-      Array<{ id: number; editedAt: Date }>
-    >`
-      SELECT "id", "editedAt"
-      FROM "TodoEditHistory"
-      WHERE "todoId" = ${todoId}
-      ORDER BY "editedAt" DESC
-      LIMIT 100
-    `;
+    const histories = await prisma.todoEditHistory.findMany({
+      where: { todoId, userId },
+      orderBy: { editedAt: "desc" },
+      take: 100,
+      select: { id: true, editedAt: true },
+    });
 
     return NextResponse.json(histories);
   } catch (error) {

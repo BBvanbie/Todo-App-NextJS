@@ -1,4 +1,4 @@
-export type TodoCategory =
+﻿export type TodoCategory =
   | "WORK"
   | "PRIVATE"
   | "PROCEDURE"
@@ -42,7 +42,7 @@ export const CATEGORY_LABEL: Record<TodoCategory, string> = {
   WORK: "仕事",
   PRIVATE: "プライベート",
   PROCEDURE: "手続き",
-  STUDY: "勉強",
+  STUDY: "学習",
   HEALTH: "健康",
   SHOPPING: "買い物",
   OTHER: "その他",
@@ -131,7 +131,7 @@ export function matchesDueFilter(todo: Todo, filter: DueFilter) {
 }
 
 export function getCardTone(status: "ok" | "warning" | "danger") {
-  if (status === "danger") return "border-[#f1a6ae] bg-[#ffeef0]";
-  if (status === "warning") return "border-[#ffd18f] bg-[#fff6e9]";
-  return "border-[#d7e1ee] bg-white/90";
+  if (status === "danger") return "border-[#f3a9b2] bg-[#fff1f3]";
+  if (status === "warning") return "border-[#ffd49a] bg-[#fff8ee]";
+  return "border-[#d7e6f4] bg-white/95";
 }

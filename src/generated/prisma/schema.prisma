@@ -36,31 +36,114 @@ enum NotificationType {
   OVERDUE_3_DAYS
 }
 
+model User {
+  id             String            @id @default(cuid())
+  email          String            @unique
+  passwordHash   String
+  displayName    String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  todos          Todo[]
+  notifications  Notification[]
+  editHistories  TodoEditHistory[]
+  accounts       Account[]
+  sessions       Session[]
+  authenticators Authenticator[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Authenticator {
+  credentialID         String
+  userId               String
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+  user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, credentialID])
+  @@unique([credentialID])
+}
+
 model Todo {
-  id            Int            @id @default(autoincrement())
+  id            Int               @id @default(autoincrement())
+  userId        String?
   title         String
   memo          String?
-  category      TodoCategory   @default(OTHER)
-  priority      TodoPriority   @default(MEDIUM)
-  completed     Boolean        @default(false)
+  category      TodoCategory      @default(OTHER)
+  priority      TodoPriority      @default(MEDIUM)
+  completed     Boolean           @default(false)
   dueAt         DateTime
   completedAt   DateTime?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  user          User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   notifications Notification[]
+  editHistories TodoEditHistory[]
 
-  @@index([completed, dueAt, completedAt, category, priority])
+  @@index([userId, completed, dueAt, completedAt, category, priority])
+}
+
+model TodoEditHistory {
+  id       Int      @id @default(autoincrement())
+  todoId   Int
+  userId   String?
+  editedAt DateTime @default(now())
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  todo     Todo     @relation(fields: [todoId], references: [id], onDelete: Cascade)
+
+  @@index([userId, todoId, editedAt])
 }
 
 model Notification {
   id        Int              @id @default(autoincrement())
   todoId    Int
+  userId    String?
   type      NotificationType
   message   String
   createdAt DateTime         @default(now())
   readAt    DateTime?
+  user      User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
   todo      Todo             @relation(fields: [todoId], references: [id], onDelete: Cascade)
 
   @@unique([todoId, type])
-  @@index([readAt, createdAt])
+  @@index([userId, readAt, createdAt])
 }

@@ -69,7 +69,7 @@ async function createNotifications() {
   const now = new Date();
   const todos = await prisma.todo.findMany({
     where: { completed: false },
-    select: { id: true, title: true, dueAt: true },
+    select: { id: true, userId: true, title: true, dueAt: true },
   });
 
   const records = todos
@@ -78,12 +78,13 @@ async function createNotifications() {
       if (!type) return null;
       return {
         todoId: todo.id,
+        userId: todo.userId,
         type,
         message: notificationMessage(type, todo.title),
       };
     })
     .filter(
-      (v): v is { todoId: number; type: NotificationType; message: string } =>
+      (v): v is { todoId: number; userId: string | null; type: NotificationType; message: string } =>
         Boolean(v),
     );
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAuthenticatedUserId } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 function parseId(id: string): number | null {
@@ -11,6 +12,11 @@ export async function PATCH(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const userId = await getAuthenticatedUserId();
+  if (!userId) {
+    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+  }
+
   const { id } = await params;
   const notificationId = parseId(id);
   if (!notificationId) {
@@ -18,8 +24,8 @@ export async function PATCH(
   }
 
   try {
-    const exists = await prisma.notification.findUnique({
-      where: { id: notificationId },
+    const exists = await prisma.notification.findFirst({
+      where: { id: notificationId, userId },
       select: { id: true },
     });
     if (!exists) {

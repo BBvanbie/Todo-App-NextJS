@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAuthenticatedUserId } from "@/lib/auth-guard";
 import { TodoCategory, TodoPriority } from "@/src/generated/prisma";
 import { prisma } from "@/lib/prisma";
 
@@ -62,6 +63,11 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const userId = await getAuthenticatedUserId();
+  if (!userId) {
+    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+  }
+
   const { id } = await params;
   const todoId = parseId(id);
   if (!todoId) {
@@ -78,8 +84,8 @@ export async function POST(
       );
     }
 
-    const existing = await prisma.todo.findUnique({
-      where: { id: todoId },
+    const existing = await prisma.todo.findFirst({
+      where: { id: todoId, userId },
     });
     if (!existing) {
       return NextResponse.json({ message: "Todo not found." }, { status: 404 });
@@ -119,6 +125,7 @@ export async function POST(
 
     const duplicated = await prisma.todo.create({
       data: {
+        userId,
         title: title ?? existing.title,
         memo: memo === undefined ? existing.memo : memo,
         category: category ?? existing.category,

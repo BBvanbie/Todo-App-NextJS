@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAuthenticatedUserId } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { TodoCategory, TodoPriority } from "@/src/generated/prisma";
 
@@ -45,8 +46,14 @@ function parsePriority(value: unknown): TodoPriority | undefined {
 }
 
 export async function GET() {
+  const userId = await getAuthenticatedUserId();
+  if (!userId) {
+    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+  }
+
   try {
     const todos = await prisma.todo.findMany({
+      where: { userId },
       orderBy: [{ completed: "asc" }, { dueAt: "asc" }, { createdAt: "desc" }],
     });
 
@@ -61,6 +68,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const userId = await getAuthenticatedUserId();
+  if (!userId) {
+    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+  }
+
   try {
     const body = (await request.json()) as CreateTodoInput;
 
@@ -105,6 +117,7 @@ export async function POST(request: Request) {
 
     const todo = await prisma.todo.create({
       data: {
+        userId,
         title: body.title.trim(),
         dueAt,
         memo: memo ?? null,
