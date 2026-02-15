@@ -4,6 +4,7 @@ import type { NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
 
   if (pathname.startsWith("/api/auth/")) {
     return NextResponse.next();
@@ -12,14 +13,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
   if (pathname === "/login" || pathname === "/register") {
-    const token = await getToken({ req: request, secret: process.env.AUTH_SECRET });
+    const token = await getToken({ req: request, secret: authSecret });
     if (token?.userId) {
       return NextResponse.redirect(new URL("/", request.url));
     }
     return NextResponse.next();
   }
 
-  const token = await getToken({ req: request, secret: process.env.AUTH_SECRET });
+  const token = await getToken({ req: request, secret: authSecret });
   if (!token?.userId) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
