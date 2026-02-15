@@ -5,7 +5,7 @@ import { LoginForm } from "@/app/login/LoginForm";
 import { authOptions } from "@/lib/auth-options";
 
 export default async function LoginPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions).catch(() => null);
   if (session?.user?.id) {
     redirect("/");
   }
