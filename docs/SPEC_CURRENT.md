@@ -2,121 +2,72 @@
 
 ## 1. アプリ概要
 - 目的: 個人利用を中心に、将来的なチーム運用を見据えたTodo管理Webアプリ
-- 特徴:
-  - 認証付き（メール/パスワード）
-  - 管理者/一般ユーザーの権限分離
-  - モバイル優先の操作性
-  - カテゴリのユーザー編集対応
-  - タスク状態（status）管理対応
-  - 通知・編集履歴・複製・バルク操作対応
+- 認証: メール/パスワード（next-auth Credentials）
+- 権限: `ADMIN` / `USER`
+- 主要特徴:
+  - カテゴリ管理（カスタムカテゴリ + 組み込みカテゴリ表示名編集）
+  - 状態管理（`OPEN / IN_PROGRESS / BLOCKED / DONE`）
+  - 通知/編集履歴/複製/バルク操作
+  - PC/Tablet/Mobile のレスポンシブ最適化
 
 ## 2. 技術構成
-- フロント: Next.js App Router / React / Tailwind CSS
-- バックエンド: Next.js Route Handlers (`/app/api/*`)
-- 認証: next-auth Credentials（JWT）
-- DB: PostgreSQL（Neon）
-- ORM: Prisma（HTTPモード）
-- 方針:
-  - トランザクション制約回避のため、更新系でRaw SQLを併用
-  - APIレスポンスは共通エラーフォーマット + `requestId`
+- Next.js App Router / React / Tailwind CSS
+- API: Route Handlers (`/app/api/*`)
+- DB: Neon PostgreSQL + Prisma（HTTPモード）
+- 更新系: 一部Raw SQL併用（HTTPモード制約対応）
+- 共通エラー: `code/message/details/requestId` + `x-request-id`
 
-## 3. 認証・権限
-- ログイン方式: メールアドレス + パスワード
-- ユーザーロール:
-  - `ADMIN`
-  - `USER`
-- 権限制御:
-  - 未ログインAPIは `401`
-  - 管理者専用領域（`/admin`）は `ADMIN` のみ
+## 3. データモデル（主要）
+- `User`: `email`, `passwordHash`, `displayName`, `role`
+- `Todo`: `title`, `memo`, `category`, `priority`, `status`, `completed`, `dueAt`, `completedAt` ほか
+- `UserCategory`: ユーザー作成カテゴリ（上限10件）
+- `UserBuiltinCategoryLabel`: 組み込みカテゴリ表示名のユーザー別上書き
+- `TodoEditHistory`: 編集履歴
+- `Notification`: 通知
 
-## 4. データモデル（実装済み中心）
-- `User`
-  - `id`, `email`, `passwordHash`, `displayName`, `role`
-- `Todo`
-  - `id`, `userId`, `title`, `memo`, `category`, `priority`, `status`, `completed`, `dueAt`, `completedAt`, `createdAt`, `updatedAt`
-- `UserCategory`（カスタムカテゴリ）
-  - `id`, `userId`, `name`, `createdAt`, `updatedAt`
-  - 上限: 1ユーザーあたり10件
-- `UserBuiltinCategoryLabel`（組み込みカテゴリ表示名）
-  - `id`, `userId`, `builtinKey`, `label`, `createdAt`, `updatedAt`
-- `TodoEditHistory`
-  - `id`, `todoId`, `userId`, `editedAt`
-- `Notification`
-  - `id`, `todoId`, `userId`, `type`, `message`, `readAt`, `createdAt`
-
-## 5. タスク仕様
-- 必須項目: `title`, `dueAt`
-- 任意項目: `memo`
-- カテゴリ:
-  - 組み込み値: `WORK / PRIVATE / PROCEDURE / STUDY / HEALTH / SHOPPING / OTHER`
-  - カスタムカテゴリ作成可（上限10）
-  - 組み込みカテゴリは「表示名」をユーザーごとに編集可（カテゴリ値自体は固定）
+## 4. タスク仕様
+- 必須: `title`, `dueAt`
 - 優先度: `HIGH / MEDIUM / LOW`
 - 状態: `OPEN / IN_PROGRESS / BLOCKED / DONE`
-- 完了フラグとの整合:
-  - `DONE` <=> `completed=true`
-  - API側で整合性を強制
+- 整合ルール: `DONE` と `completed=true` はAPI側で整合
 
-## 6. 主要機能
-- Todo CRUD
-- Todo複製（次回分作成）
-- 編集履歴表示
-- 通知一覧 / 既読化 / 全既読化
-- 検索・絞り込み
-  - カテゴリ / 優先度 / 状態 / 期限
-- バルク操作
-  - 複数選択
-  - 一括完了 / 一括未完了化 / 一括削除 / 選択解除
-- カテゴリ管理画面
-  - カスタムカテゴリの追加・編集・削除
-  - 組み込みカテゴリ表示名の編集
+## 5. UI/UX仕様（最新）
+- モバイル:
+  - 検索/絞り込みは折り畳み
+  - 下部バー常時表示
+  - 新規作成は独立FAB
+- PC/大画面:
+  - 左上ハンバーガーでメニュー表示
+  - メニューはホバー外れで自動非表示
+  - メイン領域は横幅を最大活用（`max-w` 制限解除）
+  - KPIは `md以上` で横一列
+  - `xl` ではタスク領域とカレンダーを 1:1 配置
+- タスク表示:
+  - `xl未満`: カード表示（重要度/担当/状態/期限表示 + 警告/注意色分け）
+  - `xl以上`: テーブル表示（重要度/状態列あり + 期限ベース行色分け）
 
-## 7. 画面構成
-- `/login`: ログイン
-- `/register`: 新規登録
-- `/`: ホーム（ダッシュボード + 一覧 + フィルタ + バルク操作）
-- `/tasks/new`: タスク作成
-- `/categories`: カテゴリ管理
-- `/history`: 履歴確認
-- `/admin`: 管理者画面（ADMINのみ）
+## 6. 主要画面
+- `/login`, `/register`
+- `/`（ホーム/ダッシュボード）
+- `/tasks/new`
+- `/categories`
+- `/calendar`
+- `/history`
+- `/admin`（ADMINのみ）
 
-## 8. API（主要）
-- 認証
-  - `POST /api/auth/register`
-- Todo
-  - `GET /api/todos`
-  - `POST /api/todos`
-  - `PATCH /api/todos/:id`
-  - `DELETE /api/todos/:id`
-  - `POST /api/todos/:id/duplicate`
-  - `GET /api/todos/:id/edits`
-- カテゴリ
-  - `GET /api/categories`
-  - `POST /api/categories`
-  - `PATCH /api/categories/:id`
-  - `DELETE /api/categories/:id`
-  - `PATCH /api/categories/builtin`
-- 通知
-  - `GET /api/notifications`
-  - `PATCH /api/notifications/:id/read`
-  - `PATCH /api/notifications/read-all`
+## 7. API（主要）
+- 認証: `POST /api/auth/register`
+- Todo: `GET/POST /api/todos`, `PATCH/DELETE /api/todos/:id`, `POST /api/todos/:id/duplicate`, `GET /api/todos/:id/edits`, `GET /api/todos/stats`
+- カテゴリ: `GET/POST /api/categories`, `PATCH/DELETE /api/categories/:id`, `PATCH /api/categories/builtin`
+- 通知: `GET /api/notifications`, `PATCH /api/notifications/:id/read`, `PATCH /api/notifications/read-all`
+- 監査（最小）: `GET /api/audit`
 
-## 9. エラー設計
-- 共通形式:
-  - `code`
-  - `message`
-  - `details`（必要時）
-  - `requestId`
-- ヘッダにも `x-request-id` を付与
+## 8. デプロイ状態
+- GitHub: `origin/main` へ push 済み（最新コミット反映）
+- Vercel: Git連携で `main` 自動デプロイ設定を確認済み
 
-## 10. 運用上の注意
-- Prisma HTTPモード制約のため、更新系の一部はRaw SQL
-- `Todo.category` や `Todo.status` 等はAPI側に互換保護あり
-- 本番運用ではマイグレーション適用を推奨（自己修復は補助）
-
-## 11. 既知の残課題（未実装領域）
-- Workspace/Invite/Memberなどチーム基盤
-- 監査ログの本格実装（immutableなAuditLog）
-- 担当者（assignee）
-- 論理削除（`deletedAt`）
-- サーバー側高度検索（全文・複合条件最適化）
+## 9. 既知の未実装領域
+- Workspace / Invite / Member（チーム基盤）
+- 監査ログの本格化（immutable + diff強化）
+- 論理削除 (`deletedAt`) の運用徹底
+- 通知拡張（Push/メール）
