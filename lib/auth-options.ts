@@ -1,12 +1,9 @@
 ﻿import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { ensureAdminUser } from "@/lib/admin-user";
 import { verifyPasswordHash } from "@/lib/password";
-import { prisma } from "@/lib/prisma";
-import { getRoleByUserId } from "@/lib/user-role";
 
 export const authOptions: NextAuthOptions = {
-  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? process.env.AUTHJS_SECRET,
   debug: process.env.NODE_ENV !== "production",
   session: {
     strategy: "jwt",
@@ -36,13 +33,19 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          await ensureAdminUser();
-        } catch (error) {
-          // Admin bootstrap failure should not block normal user login.
-          console.error("[auth] ensureAdminUser error", error);
-        }
+          const [{ ensureAdminUser }, { prisma }, { getRoleByUserId }] = await Promise.all([
+            import("@/lib/admin-user"),
+            import("@/lib/prisma"),
+            import("@/lib/user-role"),
+          ]);
 
-        try {
+          try {
+            await ensureAdminUser();
+          } catch (error) {
+            // Admin bootstrap failure should not block normal user login.
+            console.error("[auth] ensureAdminUser error", error);
+          }
+
           const user = await prisma.user.findUnique({
             where: { email },
           });
