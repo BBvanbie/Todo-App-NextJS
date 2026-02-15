@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { getAuthenticatedUserId } from "@/lib/auth-guard";
+import { errorJson, getRequestId, okJson } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
 
 function parseId(id: string): number | null {
@@ -9,18 +9,29 @@ function parseId(id: string): number | null {
 }
 
 export async function PATCH(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const requestId = getRequestId(request);
   const userId = await getAuthenticatedUserId();
   if (!userId) {
-    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    return errorJson({
+      status: 401,
+      code: "UNAUTHORIZED",
+      message: "Unauthorized.",
+      requestId,
+    });
   }
 
   const { id } = await params;
   const notificationId = parseId(id);
   if (!notificationId) {
-    return NextResponse.json({ message: "Invalid id." }, { status: 400 });
+    return errorJson({
+      status: 400,
+      code: "INVALID_ID",
+      message: "Invalid id.",
+      requestId,
+    });
   }
 
   try {
@@ -29,10 +40,12 @@ export async function PATCH(
       select: { id: true },
     });
     if (!exists) {
-      return NextResponse.json(
-        { message: "Notification not found." },
-        { status: 404 },
-      );
+      return errorJson({
+        status: 404,
+        code: "NOTIFICATION_NOT_FOUND",
+        message: "Notification not found.",
+        requestId,
+      });
     }
 
     const updated = await prisma.notification.update({
@@ -40,12 +53,14 @@ export async function PATCH(
       data: { readAt: new Date() },
     });
 
-    return NextResponse.json(updated);
+    return okJson(updated, { requestId });
   } catch (error) {
-    console.error(`PATCH /api/notifications/${notificationId}/read failed:`, error);
-    return NextResponse.json(
-      { message: "Failed to mark notification as read." },
-      { status: 500 },
-    );
+    console.error(`[${requestId}] PATCH /api/notifications/${notificationId}/read failed:`, error);
+    return errorJson({
+      status: 500,
+      code: "NOTIFICATION_MARK_READ_FAILED",
+      message: "Failed to mark notification as read.",
+      requestId,
+    });
   }
 }

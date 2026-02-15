@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
 import { getAuthenticatedUserId } from "@/lib/auth-guard";
+import { errorJson, getRequestId, okJson } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
+import { ensureTodoDeletedAtColumn } from "@/lib/todo-soft-delete";
 
 function parseId(id: string): number | null {
   const parsed = Number(id);
@@ -9,27 +10,48 @@ function parseId(id: string): number | null {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const requestId = getRequestId(request);
   const userId = await getAuthenticatedUserId();
   if (!userId) {
-    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    return errorJson({
+      status: 401,
+      code: "UNAUTHORIZED",
+      message: "Unauthorized.",
+      requestId,
+    });
   }
 
   const { id } = await params;
   const todoId = parseId(id);
   if (!todoId) {
-    return NextResponse.json({ message: "Invalid id." }, { status: 400 });
+    return errorJson({
+      status: 400,
+      code: "INVALID_ID",
+      message: "Invalid id.",
+      requestId,
+    });
   }
 
   try {
-    const existing = await prisma.todo.findFirst({
-      where: { id: todoId, userId },
-      select: { id: true },
-    });
-    if (!existing) {
-      return NextResponse.json({ message: "Todo not found." }, { status: 404 });
+    await ensureTodoDeletedAtColumn();
+    const existing = await prisma.$queryRaw<Array<{ id: number }>>`
+      SELECT "id"
+      FROM "Todo"
+      WHERE "id" = ${todoId}
+        AND "userId" = ${userId}
+        AND "deletedAt" IS NULL
+      LIMIT 1
+    `;
+    if (!existing[0]) {
+      return errorJson({
+        status: 404,
+        code: "TODO_NOT_FOUND",
+        message: "Todo not found.",
+        requestId,
+      });
     }
 
     const histories = await prisma.todoEditHistory.findMany({
@@ -39,12 +61,14 @@ export async function GET(
       select: { id: true, editedAt: true },
     });
 
-    return NextResponse.json(histories);
+    return okJson(histories, { requestId });
   } catch (error) {
-    console.error(`GET /api/todos/${todoId}/edits failed:`, error);
-    return NextResponse.json(
-      { message: "Failed to fetch edit histories." },
-      { status: 500 },
-    );
+    console.error(`[${requestId}] GET /api/todos/${todoId}/edits failed:`, error);
+    return errorJson({
+      status: 500,
+      code: "TODO_EDITS_FETCH_FAILED",
+      message: "Failed to fetch edit histories.",
+      requestId,
+    });
   }
 }

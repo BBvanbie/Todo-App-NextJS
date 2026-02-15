@@ -1,25 +1,35 @@
-import { NextResponse } from "next/server";
 import { getAuthenticatedUserId } from "@/lib/auth-guard";
+import { errorJson, getRequestId, okJson } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
 
-export async function PATCH() {
+export async function PATCH(request: Request) {
+  const requestId = getRequestId(request);
   const userId = await getAuthenticatedUserId();
   if (!userId) {
-    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    return errorJson({
+      status: 401,
+      code: "UNAUTHORIZED",
+      message: "Unauthorized.",
+      requestId,
+    });
   }
 
   try {
-    const result = await prisma.notification.updateMany({
-      where: { readAt: null, userId },
-      data: { readAt: new Date() },
-    });
+    const updatedCount = await prisma.$executeRaw`
+      UPDATE "Notification"
+      SET "readAt" = NOW()
+      WHERE "readAt" IS NULL
+        AND "userId" = ${userId}
+    `;
 
-    return NextResponse.json({ updatedCount: result.count });
+    return okJson({ updatedCount }, { requestId });
   } catch (error) {
-    console.error("PATCH /api/notifications/read-all failed:", error);
-    return NextResponse.json(
-      { message: "Failed to mark all notifications as read." },
-      { status: 500 },
-    );
+    console.error(`[${requestId}] PATCH /api/notifications/read-all failed:`, error);
+    return errorJson({
+      status: 500,
+      code: "NOTIFICATIONS_READ_ALL_FAILED",
+      message: "Failed to mark all notifications as read.",
+      requestId,
+    });
   }
 }

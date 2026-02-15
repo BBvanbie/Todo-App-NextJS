@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
-import { NotificationType } from "@/src/generated/prisma";
+﻿import { errorJson, getRequestId, okJson } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
+import { ensureTodoDeletedAtColumn } from "@/lib/todo-soft-delete";
+import { NotificationType } from "@/src/generated/prisma";
 
 function getTokyoYmd(date: Date): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -65,12 +66,17 @@ function isVercelCronRequest(request: Request): boolean {
   return ua.includes("vercel-cron") || xVercelCron !== null;
 }
 
-async function createNotifications() {
+async function createNotifications(requestId: string) {
+  await ensureTodoDeletedAtColumn();
   const now = new Date();
-  const todos = await prisma.todo.findMany({
-    where: { completed: false },
-    select: { id: true, userId: true, title: true, dueAt: true },
-  });
+  const todos = await prisma.$queryRaw<
+    Array<{ id: number; userId: string | null; title: string; dueAt: Date }>
+  >`
+    SELECT "id", "userId", "title", "dueAt"
+    FROM "Todo"
+    WHERE "completed" = false
+      AND "deletedAt" IS NULL
+  `;
 
   const records = todos
     .map((todo) => {
@@ -89,9 +95,9 @@ async function createNotifications() {
     );
 
   if (records.length === 0) {
-    return NextResponse.json(
+    return okJson(
       { createdCount: 0 },
-      { headers: { "Cache-Control": "no-store" } },
+      { requestId, headers: { "Cache-Control": "no-store" } },
     );
   }
 
@@ -100,50 +106,72 @@ async function createNotifications() {
     skipDuplicates: true,
   });
 
-  return NextResponse.json(
+  return okJson(
     { createdCount: created.count },
-    { headers: { "Cache-Control": "no-store" } },
+    { requestId, headers: { "Cache-Control": "no-store" } },
   );
 }
 
 export async function GET(request: Request) {
+  const requestId = getRequestId(request);
+
   if (!isVercelCronRequest(request)) {
-    return NextResponse.json(
-      { message: "Method not allowed. Use POST for manual execution." },
-      { status: 405, headers: { Allow: "POST", "Cache-Control": "no-store" } },
-    );
+    return errorJson({
+      status: 405,
+      code: "METHOD_NOT_ALLOWED",
+      message: "Method not allowed. Use POST for manual execution.",
+      requestId,
+      headers: { Allow: "POST", "Cache-Control": "no-store" },
+    });
   }
 
   if (!isAuthorized(request)) {
-    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    return errorJson({
+      status: 401,
+      code: "UNAUTHORIZED",
+      message: "Unauthorized.",
+      requestId,
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 
   try {
-    return await createNotifications();
+    return await createNotifications(requestId);
   } catch (error) {
-    console.error("GET /api/cron/notifications failed:", error);
-    return NextResponse.json(
-      { message: "Failed to generate notifications." },
-      { status: 500 },
-    );
+    console.error(`[${requestId}] GET /api/cron/notifications failed:`, error);
+    return errorJson({
+      status: 500,
+      code: "CRON_NOTIFICATIONS_FAILED",
+      message: "Failed to generate notifications.",
+      requestId,
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 }
 
 export async function POST(request: Request) {
+  const requestId = getRequestId(request);
+
   if (!isAuthorized(request)) {
-    return NextResponse.json(
-      { message: "Unauthorized." },
-      { status: 401, headers: { "Cache-Control": "no-store" } },
-    );
+    return errorJson({
+      status: 401,
+      code: "UNAUTHORIZED",
+      message: "Unauthorized.",
+      requestId,
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 
   try {
-    return await createNotifications();
+    return await createNotifications(requestId);
   } catch (error) {
-    console.error("POST /api/cron/notifications failed:", error);
-    return NextResponse.json(
-      { message: "Failed to generate notifications." },
-      { status: 500, headers: { "Cache-Control": "no-store" } },
-    );
+    console.error(`[${requestId}] POST /api/cron/notifications failed:`, error);
+    return errorJson({
+      status: 500,
+      code: "CRON_NOTIFICATIONS_FAILED",
+      message: "Failed to generate notifications.",
+      requestId,
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 }

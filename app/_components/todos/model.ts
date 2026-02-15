@@ -1,16 +1,12 @@
-﻿export type TodoCategory =
-  | "WORK"
-  | "PRIVATE"
-  | "PROCEDURE"
-  | "STUDY"
-  | "HEALTH"
-  | "SHOPPING"
-  | "OTHER";
+﻿export type TodoCategory = string;
 
 export type TodoPriority = "HIGH" | "MEDIUM" | "LOW";
+export type TodoStatus = "OPEN" | "IN_PROGRESS" | "BLOCKED" | "DONE";
 export type DueFilter = "ALL" | "TODAY" | "IN_7_DAYS" | "OVERDUE";
-export type SelectableCategory = "ALL" | TodoCategory;
+export type SelectableCategory = "ALL" | string;
 export type SelectablePriority = "ALL" | TodoPriority;
+export type SelectableStatus = "ALL" | TodoStatus;
+export type SelectableAssignee = "ALL" | "SELF" | "UNASSIGNED";
 
 export type Todo = {
   id: number;
@@ -18,6 +14,8 @@ export type Todo = {
   memo: string | null;
   category: TodoCategory;
   priority: TodoPriority;
+  status: TodoStatus;
+  assigneeUserId: string | null;
   completed: boolean;
   dueAt: string;
   completedAt: string | null;
@@ -38,7 +36,7 @@ export type TodoEditHistory = {
   editedAt: string;
 };
 
-export const CATEGORY_LABEL: Record<TodoCategory, string> = {
+const BUILTIN_CATEGORY_LABEL: Record<string, string> = {
   WORK: "仕事",
   PRIVATE: "プライベート",
   PROCEDURE: "手続き",
@@ -48,10 +46,22 @@ export const CATEGORY_LABEL: Record<TodoCategory, string> = {
   OTHER: "その他",
 };
 
+export function categoryLabel(value: string, labelMap?: Record<string, string>) {
+  if (labelMap && labelMap[value]) return labelMap[value];
+  return BUILTIN_CATEGORY_LABEL[value] ?? value;
+}
+
 export const PRIORITY_LABEL: Record<TodoPriority, string> = {
   HIGH: "高",
   MEDIUM: "中",
   LOW: "低",
+};
+
+export const STATUS_LABEL: Record<TodoStatus, string> = {
+  OPEN: "未着手",
+  IN_PROGRESS: "進行中",
+  BLOCKED: "保留",
+  DONE: "完了",
 };
 
 export const DUE_FILTER_LABEL: Record<DueFilter, string> = {

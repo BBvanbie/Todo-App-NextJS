@@ -1,11 +1,28 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { getAuthenticatedUserId } from "@/lib/auth-guard";
+import { sanitizeForAudit, writeAuditLog } from "@/lib/audit-log";
+import { errorJson, getRequestId, okJson } from "@/lib/api-response";
+import {
+  ensureTodoCategoryColumnText,
+  isAllowedCategory,
+  normalizeCategoryInput,
+} from "@/lib/categories";
 import { prisma } from "@/lib/prisma";
-import { TodoCategory, TodoPriority } from "@/src/generated/prisma";
+import { ensureTodoAssigneeColumn, parseAssigneeInput } from "@/lib/todo-assignee";
+import { ensureTodoDeletedAtColumn } from "@/lib/todo-soft-delete";
+import {
+  completedFromStatus,
+  ensureTodoStatusColumn,
+  normalizeTodoStatusInput,
+  statusFromCompleted,
+} from "@/lib/todo-status";
+import { TodoPriority } from "@/src/generated/prisma";
 
 type UpdateTodoInput = {
   title?: unknown;
   completed?: unknown;
+  status?: unknown;
+  assigneeUserId?: unknown;
   dueAt?: unknown;
   memo?: unknown;
   category?: unknown;
@@ -38,13 +55,6 @@ function parseMemo(value: unknown): string | null | undefined {
   return trimmed;
 }
 
-function parseCategory(value: unknown): TodoCategory | undefined {
-  if (typeof value !== "string") return undefined;
-  return Object.values(TodoCategory).includes(value as TodoCategory)
-    ? (value as TodoCategory)
-    : undefined;
-}
-
 function parsePriority(value: unknown): TodoPriority | undefined {
   if (typeof value !== "string") return undefined;
   return Object.values(TodoPriority).includes(value as TodoPriority)
@@ -52,35 +62,95 @@ function parsePriority(value: unknown): TodoPriority | undefined {
     : undefined;
 }
 
+type TodoRow = {
+  id: number;
+  userId: string | null;
+  deletedAt: Date | null;
+  title: string;
+  memo: string | null;
+  category: string;
+  priority: "HIGH" | "MEDIUM" | "LOW";
+  status: "OPEN" | "IN_PROGRESS" | "BLOCKED" | "DONE";
+  assigneeUserId: string | null;
+  completed: boolean;
+  dueAt: Date;
+  completedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+function buildTodoChanges(before: TodoRow, after: TodoRow) {
+  const keys: Array<keyof TodoRow> = [
+    "title",
+    "memo",
+    "category",
+    "priority",
+    "status",
+    "assigneeUserId",
+    "completed",
+    "dueAt",
+    "completedAt",
+  ];
+  const changes: Record<string, { before: unknown; after: unknown }> = {};
+  for (const key of keys) {
+    const prev = sanitizeForAudit(before[key]);
+    const next = sanitizeForAudit(after[key]);
+    if (JSON.stringify(prev) !== JSON.stringify(next)) {
+      changes[String(key)] = { before: prev, after: next };
+    }
+  }
+  return changes;
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const requestId = getRequestId(request);
   const userId = await getAuthenticatedUserId();
   if (!userId) {
-    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    return errorJson({
+      status: 401,
+      code: "UNAUTHORIZED",
+      message: "Unauthorized.",
+      requestId,
+    });
   }
 
   const { id } = await params;
   const todoId = parseId(id);
   if (!todoId) {
-    return NextResponse.json({ message: "Invalid id." }, { status: 400 });
+    return errorJson({
+      status: 400,
+      code: "INVALID_ID",
+      message: "Invalid id.",
+      requestId,
+    });
   }
 
   try {
+    await ensureTodoCategoryColumnText();
+    await ensureTodoStatusColumn();
+    await ensureTodoAssigneeColumn();
+    await ensureTodoDeletedAtColumn();
+
     const body = (await request.json()) as UpdateTodoInput;
     const shouldLogEdit =
       body.title !== undefined ||
       body.dueAt !== undefined ||
       body.memo !== undefined ||
       body.category !== undefined ||
-      body.priority !== undefined;
+      body.priority !== undefined ||
+      body.status !== undefined ||
+      body.assigneeUserId !== undefined;
 
     const data: {
       title?: string;
       memo?: string | null;
-      category?: TodoCategory;
+      category?: string;
       priority?: TodoPriority;
+      status?: "OPEN" | "IN_PROGRESS" | "BLOCKED" | "DONE";
+      assigneeUserId?: string | null;
       completed?: boolean;
       dueAt?: Date;
       completedAt?: Date | null;
@@ -88,21 +158,56 @@ export async function PATCH(
 
     if (body.title !== undefined) {
       if (typeof body.title !== "string" || body.title.trim().length === 0) {
-        return NextResponse.json(
-          { message: "title must be a non-empty string." },
-          { status: 400 },
-        );
+        return errorJson({
+          status: 400,
+          code: "INVALID_TITLE",
+          message: "title must be a non-empty string.",
+          requestId,
+        });
       }
       data.title = body.title.trim();
     }
 
-    if (body.completed !== undefined) {
-      if (typeof body.completed !== "boolean") {
-        return NextResponse.json(
-          { message: "completed must be a boolean." },
-          { status: 400 },
-        );
+    if (body.completed !== undefined && typeof body.completed !== "boolean") {
+      return errorJson({
+        status: 400,
+        code: "INVALID_COMPLETED",
+        message: "completed must be a boolean.",
+        requestId,
+      });
+    }
+
+    const parsedStatus =
+      body.status === undefined ? undefined : normalizeTodoStatusInput(body.status);
+    if (body.status !== undefined && parsedStatus === null) {
+      return errorJson({
+        status: 400,
+        code: "INVALID_STATUS",
+        message: "status is invalid.",
+        requestId,
+      });
+    }
+    const status = parsedStatus ?? undefined;
+
+    if (status !== undefined && body.completed !== undefined) {
+      const expectedCompleted = completedFromStatus(status);
+      if (expectedCompleted !== body.completed) {
+        return errorJson({
+          status: 400,
+          code: "STATUS_COMPLETED_CONFLICT",
+          message: "status and completed conflict.",
+          requestId,
+        });
       }
+    }
+
+    if (status !== undefined) {
+      data.status = status;
+      data.completed = completedFromStatus(status);
+      data.completedAt = data.completed ? new Date() : null;
+    } else if (body.completed !== undefined) {
+      const nextStatus = statusFromCompleted(body.completed);
+      data.status = nextStatus;
       data.completed = body.completed;
       data.completedAt = body.completed ? new Date() : null;
     }
@@ -110,10 +215,12 @@ export async function PATCH(
     if (body.dueAt !== undefined) {
       const dueAt = parseDueAt(body.dueAt);
       if (dueAt === null || dueAt === undefined) {
-        return NextResponse.json(
-          { message: "dueAt must be a valid ISO datetime string." },
-          { status: 400 },
-        );
+        return errorJson({
+          status: 400,
+          code: "INVALID_DUE_AT",
+          message: "dueAt must be a valid ISO datetime string.",
+          requestId,
+        });
       }
       data.dueAt = dueAt;
     }
@@ -121,21 +228,33 @@ export async function PATCH(
     if (body.memo !== undefined) {
       const memo = parseMemo(body.memo);
       if (memo === undefined) {
-        return NextResponse.json(
-          { message: "memo must be a string or null." },
-          { status: 400 },
-        );
+        return errorJson({
+          status: 400,
+          code: "INVALID_MEMO",
+          message: "memo must be a string or null.",
+          requestId,
+        });
       }
       data.memo = memo;
     }
 
     if (body.category !== undefined) {
-      const category = parseCategory(body.category);
-      if (category === undefined) {
-        return NextResponse.json(
-          { message: "category is invalid." },
-          { status: 400 },
-        );
+      const category = normalizeCategoryInput(body.category);
+      if (!category) {
+        return errorJson({
+          status: 400,
+          code: "INVALID_CATEGORY",
+          message: "category is invalid.",
+          requestId,
+        });
+      }
+      if (!(await isAllowedCategory(userId, category))) {
+        return errorJson({
+          status: 400,
+          code: "CATEGORY_NOT_ALLOWED",
+          message: "選択したカテゴリは使用できません。",
+          requestId,
+        });
       }
       data.category = category;
     }
@@ -143,19 +262,54 @@ export async function PATCH(
     if (body.priority !== undefined) {
       const priority = parsePriority(body.priority);
       if (priority === undefined) {
-        return NextResponse.json(
-          { message: "priority is invalid." },
-          { status: 400 },
-        );
+        return errorJson({
+          status: 400,
+          code: "INVALID_PRIORITY",
+          message: "priority is invalid.",
+          requestId,
+        });
       }
       data.priority = priority;
     }
 
+    if (body.assigneeUserId !== undefined) {
+      const assigneeUserId = parseAssigneeInput(body.assigneeUserId, userId);
+      if (assigneeUserId === undefined) {
+        return errorJson({
+          status: 400,
+          code: "INVALID_ASSIGNEE",
+          message: "assigneeUserId is invalid.",
+          requestId,
+        });
+      }
+      data.assigneeUserId = assigneeUserId;
+    }
+
     if (Object.keys(data).length === 0) {
-      return NextResponse.json(
-        { message: "No updatable fields provided." },
-        { status: 400 },
-      );
+      return errorJson({
+        status: 400,
+        code: "NO_UPDATABLE_FIELDS",
+        message: "No updatable fields provided.",
+        requestId,
+      });
+    }
+
+    const beforeRows = await prisma.$queryRaw<Array<TodoRow>>`
+      SELECT *
+      FROM "Todo"
+      WHERE "id" = ${todoId}
+        AND "userId" = ${userId}
+        AND "deletedAt" IS NULL
+      LIMIT 1
+    `;
+    const beforeTodo = beforeRows[0];
+    if (!beforeTodo) {
+      return errorJson({
+        status: 404,
+        code: "TODO_NOT_FOUND",
+        message: "Todo not found.",
+        requestId,
+      });
     }
 
     const setClauses: string[] = [];
@@ -171,11 +325,19 @@ export async function PATCH(
     }
     if (data.category !== undefined) {
       values.push(data.category);
-      setClauses.push(`"category" = $${values.length}::"TodoCategory"`);
+      setClauses.push(`"category" = $${values.length}`);
     }
     if (data.priority !== undefined) {
       values.push(data.priority);
       setClauses.push(`"priority" = $${values.length}::"TodoPriority"`);
+    }
+    if (data.status !== undefined) {
+      values.push(data.status);
+      setClauses.push(`"status" = $${values.length}`);
+    }
+    if (data.assigneeUserId !== undefined) {
+      values.push(data.assigneeUserId);
+      setClauses.push(`"assigneeUserId" = $${values.length}`);
     }
     if (data.completed !== undefined) {
       values.push(data.completed);
@@ -202,12 +364,18 @@ export async function PATCH(
           "updatedAt" = NOW()
       WHERE "id" = $${idIndex}
         AND "userId" = $${userIdIndex}
+        AND "deletedAt" IS NULL
       `,
       ...values,
     );
 
     if (updatedCount === 0) {
-      return NextResponse.json({ message: "Todo not found." }, { status: 404 });
+      return errorJson({
+        status: 404,
+        code: "TODO_NOT_FOUND",
+        message: "Todo not found.",
+        requestId,
+      });
     }
 
     if (shouldLogEdit) {
@@ -217,59 +385,132 @@ export async function PATCH(
       `;
     }
 
-    const todo = await prisma.todo.findFirst({
-      where: { id: todoId, userId },
-    });
+    const todoRows = await prisma.$queryRaw<Array<TodoRow>>`
+      SELECT *
+      FROM "Todo"
+      WHERE "id" = ${todoId}
+        AND "userId" = ${userId}
+        AND "deletedAt" IS NULL
+      LIMIT 1
+    `;
+    const todo = todoRows[0];
     if (!todo) {
-      return NextResponse.json({ message: "Todo not found." }, { status: 404 });
+      return errorJson({
+        status: 404,
+        code: "TODO_NOT_FOUND",
+        message: "Todo not found.",
+        requestId,
+      });
     }
 
-    return NextResponse.json(todo);
+    const action =
+      beforeTodo.completed === false && todo.completed === true
+        ? "TODO_COMPLETE"
+        : beforeTodo.completed === true && todo.completed === false
+          ? "TODO_REOPEN"
+          : "TODO_UPDATE";
+    const changes = buildTodoChanges(beforeTodo, todo);
+
+    await writeAuditLog({
+      actorUserId: userId,
+      action,
+      targetType: "TODO",
+      targetId: String(todoId),
+      requestId,
+      request,
+      diff: {
+        before: sanitizeForAudit(beforeTodo) as Record<string, unknown>,
+        after: sanitizeForAudit(todo) as Record<string, unknown>,
+        changes,
+      },
+    });
+
+    return okJson(todo, { requestId });
   } catch (error) {
-    console.error(`PATCH /api/todos/${todoId} failed:`, error);
+    console.error(`[${requestId}] PATCH /api/todos/${todoId} failed:`, error);
     const detail = error instanceof Error ? error.message : "unknown error";
-    return NextResponse.json(
-      { message: `Failed to update todo. (${detail})` },
-      { status: 500 },
-    );
+    return errorJson({
+      status: 500,
+      code: "TODO_UPDATE_FAILED",
+      message: "Failed to update todo.",
+      details: detail,
+      requestId,
+    });
   }
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const requestId = getRequestId(request);
   const userId = await getAuthenticatedUserId();
   if (!userId) {
-    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    return errorJson({
+      status: 401,
+      code: "UNAUTHORIZED",
+      message: "Unauthorized.",
+      requestId,
+    });
   }
 
   const { id } = await params;
   const todoId = parseId(id);
   if (!todoId) {
-    return NextResponse.json({ message: "Invalid id." }, { status: 400 });
+    return errorJson({
+      status: 400,
+      code: "INVALID_ID",
+      message: "Invalid id.",
+      requestId,
+    });
   }
 
   try {
-    const existing = await prisma.todo.findFirst({
-      where: { id: todoId, userId },
-      select: { id: true },
-    });
-    if (!existing) {
-      return NextResponse.json({ message: "Todo not found." }, { status: 404 });
+    await ensureTodoDeletedAtColumn();
+    const deletedRows = await prisma.$queryRaw<Array<TodoRow>>`
+      UPDATE "Todo"
+      SET "deletedAt" = NOW(),
+          "updatedAt" = NOW()
+      WHERE "id" = ${todoId}
+        AND "userId" = ${userId}
+        AND "deletedAt" IS NULL
+      RETURNING *
+    `;
+    const deleted = deletedRows[0];
+    if (!deleted) {
+      return errorJson({
+        status: 404,
+        code: "TODO_NOT_FOUND",
+        message: "Todo not found.",
+        requestId,
+      });
     }
 
-    await prisma.todo.delete({
-      where: { id: todoId },
+    await writeAuditLog({
+      actorUserId: userId,
+      action: "TODO_DELETE",
+      targetType: "TODO",
+      targetId: String(todoId),
+      requestId,
+      request,
+      diff: {
+        before: sanitizeForAudit(deleted) as Record<string, unknown>,
+        after: null,
+      },
     });
 
-    return new NextResponse(null, { status: 204 });
+    const response = new NextResponse(null, { status: 204 });
+    response.headers.set("x-request-id", requestId);
+    return response;
   } catch (error) {
-    console.error(`DELETE /api/todos/${todoId} failed:`, error);
+    console.error(`[${requestId}] DELETE /api/todos/${todoId} failed:`, error);
     const detail = error instanceof Error ? error.message : "unknown error";
-    return NextResponse.json(
-      { message: `Failed to delete todo. (${detail})` },
-      { status: 500 },
-    );
+    return errorJson({
+      status: 500,
+      code: "TODO_DELETE_FAILED",
+      message: "Failed to delete todo.",
+      details: detail,
+      requestId,
+    });
   }
 }

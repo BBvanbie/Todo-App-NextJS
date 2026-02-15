@@ -1,10 +1,12 @@
-import type { FormEvent } from "react";
+﻿import type { FormEvent } from "react";
 import {
-  CATEGORY_LABEL,
   PRIORITY_LABEL,
+  STATUS_LABEL,
+  categoryLabel,
   type Todo,
   type TodoCategory,
   type TodoPriority,
+  type TodoStatus,
 } from "./model";
 
 type DuplicateTodoModalProps = {
@@ -14,12 +16,18 @@ type DuplicateTodoModalProps = {
   dueDate: string;
   category: TodoCategory;
   priority: TodoPriority;
+  status: TodoStatus;
+  assignee: "SELF" | "UNASSIGNED";
+  categoryOptions: string[];
+  categoryLabelMap: Record<string, string>;
   saving: boolean;
   onTitleChange: (value: string) => void;
   onMemoChange: (value: string) => void;
   onDueDateChange: (value: string) => void;
   onCategoryChange: (value: TodoCategory) => void;
   onPriorityChange: (value: TodoPriority) => void;
+  onStatusChange: (value: TodoStatus) => void;
+  onAssigneeChange: (value: "SELF" | "UNASSIGNED") => void;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 };
@@ -31,12 +39,18 @@ export function DuplicateTodoModal({
   dueDate,
   category,
   priority,
+  status,
+  assignee,
+  categoryOptions,
+  categoryLabelMap,
   saving,
   onTitleChange,
   onMemoChange,
   onDueDateChange,
   onCategoryChange,
   onPriorityChange,
+  onStatusChange,
+  onAssigneeChange,
   onClose,
   onSubmit,
 }: DuplicateTodoModalProps) {
@@ -44,7 +58,7 @@ export function DuplicateTodoModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f1f35]/45 px-4">
       <div className="glass-card w-full max-w-xl rounded-2xl p-5">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-[#17355f]">次回分を作成</h3>
+          <h3 className="text-lg font-semibold text-[#17355f]">次回タスクを作成</h3>
           <button
             type="button"
             onClick={onClose}
@@ -84,7 +98,7 @@ export function DuplicateTodoModal({
             rows={3}
             className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm"
           />
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-4">
             <div>
               <label className="block text-sm text-muted" htmlFor="dupCategory">
                 カテゴリ
@@ -95,16 +109,16 @@ export function DuplicateTodoModal({
                 onChange={(event) => onCategoryChange(event.target.value as TodoCategory)}
                 className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm"
               >
-                {Object.entries(CATEGORY_LABEL).map(([value, label]) => (
+                {categoryOptions.map((value) => (
                   <option key={value} value={value}>
-                    {label}
+                    {categoryLabel(value, categoryLabelMap)}
                   </option>
                 ))}
               </select>
             </div>
             <div>
               <label className="block text-sm text-muted" htmlFor="dupPriority">
-                重要度
+                優先度
               </label>
               <select
                 id="dupPriority"
@@ -117,6 +131,37 @@ export function DuplicateTodoModal({
                     {label}
                   </option>
                 ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-muted" htmlFor="dupStatus">
+                状態
+              </label>
+              <select
+                id="dupStatus"
+                value={status}
+                onChange={(event) => onStatusChange(event.target.value as TodoStatus)}
+                className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm"
+              >
+                {Object.entries(STATUS_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-muted" htmlFor="dupAssignee">
+                担当者
+              </label>
+              <select
+                id="dupAssignee"
+                value={assignee}
+                onChange={(event) => onAssigneeChange(event.target.value as "SELF" | "UNASSIGNED")}
+                className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm"
+              >
+                <option value="SELF">自分</option>
+                <option value="UNASSIGNED">未設定</option>
               </select>
             </div>
           </div>

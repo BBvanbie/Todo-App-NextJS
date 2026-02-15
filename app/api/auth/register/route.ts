@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+﻿import { errorJson, getRequestId, okJson } from "@/lib/api-response";
 import { createPasswordHash } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 
@@ -30,6 +30,8 @@ function parseDisplayName(value: unknown): string | null {
 }
 
 export async function POST(request: Request) {
+  const requestId = getRequestId(request);
+
   try {
     const body = (await request.json()) as RegisterInput;
     const email = normalizeEmail(body.email);
@@ -37,10 +39,12 @@ export async function POST(request: Request) {
     const displayName = parseDisplayName(body.displayName);
 
     if (!email || !password) {
-      return NextResponse.json(
-        { message: "email と password(8文字以上)は必須です。" },
-        { status: 400 },
-      );
+      return errorJson({
+        status: 400,
+        code: "INVALID_REGISTER_INPUT",
+        message: "email と password(8文字以上)は必須です。",
+        requestId,
+      });
     }
 
     const exists = await prisma.user.findUnique({
@@ -49,10 +53,12 @@ export async function POST(request: Request) {
     });
 
     if (exists) {
-      return NextResponse.json(
-        { message: "この email は既に使われています。" },
-        { status: 409 },
-      );
+      return errorJson({
+        status: 409,
+        code: "EMAIL_ALREADY_EXISTS",
+        message: "この email は既に使われています。",
+        requestId,
+      });
     }
 
     const user = await prisma.user.create({
@@ -69,9 +75,14 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json(user, { status: 201 });
+    return okJson(user, { status: 201, requestId });
   } catch (error) {
-    console.error("POST /api/auth/register failed:", error);
-    return NextResponse.json({ message: "ユーザー作成に失敗しました。" }, { status: 500 });
+    console.error(`[${requestId}] POST /api/auth/register failed:`, error);
+    return errorJson({
+      status: 500,
+      code: "REGISTER_FAILED",
+      message: "ユーザー作成に失敗しました。",
+      requestId,
+    });
   }
 }

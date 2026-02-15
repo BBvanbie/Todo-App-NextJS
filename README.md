@@ -1,52 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+﻿# Next-App-Todos
 
-## Security
+個人利用を中心に、将来的なチーム運用を見据えた Todo 管理アプリです。
 
-Set these environment variables to enable ID/password authentication for the app:
+## 主な機能
+- メール/パスワード認証（next-auth Credentials）
+- ロール管理（`ADMIN` / `USER`）
+- Todo作成・編集・削除・複製・履歴
+- カテゴリ管理（カスタムカテゴリ最大10件）
+- 組み込みカテゴリ名のユーザー別編集
+- ステータス管理（`OPEN / IN_PROGRESS / BLOCKED / DONE`）
+- 通知一覧/既読化
+- バルク操作（複数選択で一括更新/削除）
 
-```env
-AUTH_SECRET=your-random-secret
-ADMIN_EMAIL=admin
-ADMIN_PASSWORD=your-strong-admin-password
+## 技術スタック
+- Next.js App Router
+- React
+- Tailwind CSS
+- next-auth
+- Prisma + Neon PostgreSQL（HTTPモード）
+
+## セットアップ
+1. 依存をインストール
+```bash
+npm install
 ```
 
-Notes:
-- `ADMIN_EMAIL` / `ADMIN_PASSWORD` are used to auto-create or update the admin user on first login.
-- New users can register from `/register`.
-- `/api/cron/*` is excluded from session auth and continues using `CRON_SECRET`.
-- `/api/cron/notifications` manual trigger is `POST` (authenticated). `GET` is reserved for Vercel Cron requests.
+2. 環境変数を設定（`.env.local`）
+```env
+DATABASE_URL=...
+AUTH_SECRET=...
+ADMIN_EMAIL=admin
+ADMIN_PASSWORD=...
+CRON_SECRET=...
+```
 
-## Getting Started
-
-First, run the development server:
-
+3. 開発サーバー起動
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. 静的チェック
+```bash
+npm run lint
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## よく使う画面
+- `/` ホーム（ダッシュボード + タスク一覧）
+- `/tasks/new` 新規作成
+- `/categories` カテゴリ管理
+- `/history` 履歴
+- `/admin` 管理者向け
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## API（主要）
+- `GET/POST /api/todos`
+- `PATCH/DELETE /api/todos/:id`
+- `POST /api/todos/:id/duplicate`
+- `GET /api/todos/:id/edits`
+- `GET/POST /api/categories`
+- `PATCH/DELETE /api/categories/:id`
+- `PATCH /api/categories/builtin`
 
-## Learn More
+## ドキュメント
+- `docs/SPEC_CURRENT.md`
+- `docs/IMPROVEMENT_FEASIBILITY_2026-02-15.md`
+- `docs/README.md`
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 補足
+- Neon HTTPモード制約により、更新系は一部Raw SQLを併用しています。
+- APIは `requestId` を返す共通エラー形式を採用しています。
