@@ -11,7 +11,10 @@ import {
 type EditTodoModalProps = {
   title: string;
   memo: string;
+  startDate: string;
+  startTime: string;
   dueDate: string;
+  dueTime: string;
   category: TodoCategory;
   priority: TodoPriority;
   status: TodoStatus;
@@ -21,7 +24,10 @@ type EditTodoModalProps = {
   saving: boolean;
   onTitleChange: (value: string) => void;
   onMemoChange: (value: string) => void;
+  onStartDateChange: (value: string) => void;
+  onStartTimeChange: (value: string) => void;
   onDueDateChange: (value: string) => void;
+  onDueTimeChange: (value: string) => void;
   onCategoryChange: (value: TodoCategory) => void;
   onPriorityChange: (value: TodoPriority) => void;
   onStatusChange: (value: TodoStatus) => void;
@@ -33,7 +39,10 @@ type EditTodoModalProps = {
 export function EditTodoModal({
   title,
   memo,
+  startDate,
+  startTime,
   dueDate,
+  dueTime,
   category,
   priority,
   status,
@@ -43,7 +52,10 @@ export function EditTodoModal({
   saving,
   onTitleChange,
   onMemoChange,
+  onStartDateChange,
+  onStartTimeChange,
   onDueDateChange,
+  onDueTimeChange,
   onCategoryChange,
   onPriorityChange,
   onStatusChange,
@@ -74,14 +86,44 @@ export function EditTodoModal({
             onChange={(event) => onTitleChange(event.target.value)}
             className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm"
           />
-          <label className="block text-sm text-muted" htmlFor="editDueAt">
-            日付
+          <label className="block text-sm text-muted" htmlFor="editStartAtDate">
+            開始日（任意）
           </label>
           <input
-            id="editDueAt"
+            id="editStartAtDate"
+            type="date"
+            value={startDate}
+            onChange={(event) => onStartDateChange(event.target.value)}
+            className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm"
+          />
+          <label className="block text-sm text-muted" htmlFor="editStartAtTime">
+            開始時刻（任意）
+          </label>
+          <input
+            id="editStartAtTime"
+            type="time"
+            value={startTime}
+            onChange={(event) => onStartTimeChange(event.target.value)}
+            className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm"
+          />
+          <label className="block text-sm text-muted" htmlFor="editDueAtDate">
+            期限日付
+          </label>
+          <input
+            id="editDueAtDate"
             type="date"
             value={dueDate}
             onChange={(event) => onDueDateChange(event.target.value)}
+            className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm"
+          />
+          <label className="block text-sm text-muted" htmlFor="editDueAtTime">
+            期限時刻（任意）
+          </label>
+          <input
+            id="editDueAtTime"
+            type="time"
+            value={dueTime}
+            onChange={(event) => onDueTimeChange(event.target.value)}
             className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm"
           />
           <label className="block text-sm text-muted" htmlFor="editMemo">

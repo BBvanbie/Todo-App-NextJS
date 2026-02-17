@@ -32,6 +32,7 @@ export function categoryLabel(value: string, labelMap?: Record<string, string>) 
   return BUILTIN_CATEGORY_LABEL[value] ?? value;
 }
 
-export function toJstMidnightIso(localDateInput: string) {
-  return new Date(`${localDateInput}T00:00:00+09:00`).toISOString();
+export function toJstDateTimeIso(localDateInput: string, localTimeInput?: string) {
+  const normalizedTime = localTimeInput && /^\d{2}:\d{2}$/.test(localTimeInput) ? localTimeInput : "00:00";
+  return new Date(`${localDateInput}T${normalizedTime}:00+09:00`).toISOString();
 }

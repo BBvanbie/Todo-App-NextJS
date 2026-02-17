@@ -12,7 +12,10 @@ import {
 
 type NewTaskFormProps = {
   title: string;
+  startDate: string;
+  startTime: string;
   dueDate: string;
+  dueTime: string;
   memo: string;
   category: TodoCategory;
   priority: TodoPriority;
@@ -23,7 +26,10 @@ type NewTaskFormProps = {
   saving: boolean;
   error: string | null;
   onTitleChange: (value: string) => void;
+  onStartDateChange: (value: string) => void;
+  onStartTimeChange: (value: string) => void;
   onDueDateChange: (value: string) => void;
+  onDueTimeChange: (value: string) => void;
   onMemoChange: (value: string) => void;
   onCategoryChange: (value: TodoCategory) => void;
   onPriorityChange: (value: TodoPriority) => void;
@@ -34,7 +40,10 @@ type NewTaskFormProps = {
 
 export function NewTaskForm({
   title,
+  startDate,
+  startTime,
   dueDate,
+  dueTime,
   memo,
   category,
   priority,
@@ -45,7 +54,10 @@ export function NewTaskForm({
   saving,
   error,
   onTitleChange,
+  onStartDateChange,
+  onStartTimeChange,
   onDueDateChange,
+  onDueTimeChange,
   onMemoChange,
   onCategoryChange,
   onPriorityChange,
@@ -54,7 +66,7 @@ export function NewTaskForm({
   onSubmit,
 }: NewTaskFormProps) {
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-8 md:px-8">
+    <main className="mx-auto w-full max-w-3xl px-4 py-8 min-[768px]:px-8 min-[1024px]:max-w-4xl">
       <section className="glass-card rounded-3xl p-6 md:p-8">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -92,14 +104,53 @@ export function NewTaskForm({
           </div>
 
           <div>
+            <label className="mb-1 block text-sm text-muted" htmlFor="startDate">
+              開始日（任意）
+            </label>
+            <input
+              id="startDate"
+              type="date"
+              value={startDate}
+              onChange={(event) => onStartDateChange(event.target.value)}
+              className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-4"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm text-muted" htmlFor="startTime">
+              開始時刻（任意）
+            </label>
+            <input
+              id="startTime"
+              type="time"
+              value={startTime}
+              onChange={(event) => onStartTimeChange(event.target.value)}
+              className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-4"
+            />
+          </div>
+
+          <div>
             <label className="mb-1 block text-sm text-muted" htmlFor="dueDate">
-              日付
+              期限日付
             </label>
             <input
               id="dueDate"
               type="date"
               value={dueDate}
               onChange={(event) => onDueDateChange(event.target.value)}
+              className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-4"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm text-muted" htmlFor="dueTime">
+              期限時刻（任意）
+            </label>
+            <input
+              id="dueTime"
+              type="time"
+              value={dueTime}
+              onChange={(event) => onDueTimeChange(event.target.value)}
               className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm outline-none ring-primary/20 focus:ring-4"
             />
           </div>
@@ -118,7 +169,7 @@ export function NewTaskForm({
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-4">
+          <div className="grid gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             <div>
               <label className="mb-1 block text-sm text-muted" htmlFor="category">
                 カテゴリ

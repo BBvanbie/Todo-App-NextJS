@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CompletedTodosSection } from "./_components/todos/CompletedTodosSection";
@@ -13,7 +14,8 @@ import { NotificationPanel } from "./_components/todos/NotificationPanel";
 import { PendingTodosSection } from "./_components/todos/PendingTodosSection";
 import {
   toDateInputValue,
-  toJstMidnightIso,
+  toJstDateTimeIso,
+  toTimeInputValue,
   type AppNotification,
   type DueFilter,
   type SelectableCategory,
@@ -39,6 +41,8 @@ type TodoStats = {
   dueSoon: number;
   overdue: number;
 };
+
+type KpiKey = "total" | "pending" | "completed" | "dueSoon" | "overdue";
 
 async function getApiErrorMessage(response: Response, fallback: string) {
   try {
@@ -73,6 +77,7 @@ function toJstEndIso(ymd: string) {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<string[]>([
     "WORK",
@@ -111,7 +116,10 @@ export default function Home() {
   const [editPriority, setEditPriority] = useState<TodoPriority>("MEDIUM");
   const [editStatus, setEditStatus] = useState<TodoStatus>("OPEN");
   const [editAssignee, setEditAssignee] = useState<"SELF" | "UNASSIGNED">("SELF");
+  const [editStartDate, setEditStartDate] = useState("");
+  const [editStartTime, setEditStartTime] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
+  const [editDueTime, setEditDueTime] = useState("");
   const [editSaving, setEditSaving] = useState(false);
 
   const [toastTodo, setToastTodo] = useState<Todo | null>(null);
@@ -125,7 +133,10 @@ export default function Home() {
   const [dupPriority, setDupPriority] = useState<TodoPriority>("MEDIUM");
   const [dupStatus, setDupStatus] = useState<TodoStatus>("OPEN");
   const [dupAssignee, setDupAssignee] = useState<"SELF" | "UNASSIGNED">("SELF");
+  const [dupStartDate, setDupStartDate] = useState("");
+  const [dupStartTime, setDupStartTime] = useState("");
   const [dupDueDate, setDupDueDate] = useState("");
+  const [dupDueTime, setDupDueTime] = useState("");
   const [dupSaving, setDupSaving] = useState(false);
 
   const [historyTodo, setHistoryTodo] = useState<Todo | null>(null);
@@ -134,6 +145,9 @@ export default function Home() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userDisplayName, setUserDisplayName] = useState("ユーザー");
   const [kpiOpen, setKpiOpen] = useState(false);
+  const [kpiModalKey, setKpiModalKey] = useState<KpiKey | null>(null);
+  const [kpiTodos, setKpiTodos] = useState<Todo[]>([]);
+  const [kpiLoading, setKpiLoading] = useState(false);
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [selectedTodoIds, setSelectedTodoIds] = useState<Set<number>>(new Set());
@@ -376,7 +390,10 @@ export default function Home() {
     setDupPriority(toastTodo.priority);
     setDupStatus(toastTodo.status);
     setDupAssignee(toastTodo.assigneeUserId ? "SELF" : "UNASSIGNED");
+    setDupStartDate(toastTodo.startAt ? toDateInputValue(toastTodo.startAt) : "");
+    setDupStartTime(toastTodo.startAt ? toTimeInputValue(toastTodo.startAt) : "");
     setDupDueDate("");
+    setDupDueTime("");
     setShowToast(false);
     setToastTodo(null);
   };
@@ -603,7 +620,10 @@ export default function Home() {
     setEditPriority(todo.priority);
     setEditStatus(todo.status);
     setEditAssignee(todo.assigneeUserId ? "SELF" : "UNASSIGNED");
+    setEditStartDate(todo.startAt ? toDateInputValue(todo.startAt) : "");
+    setEditStartTime(todo.startAt ? toTimeInputValue(todo.startAt) : "");
     setEditDueDate(toDateInputValue(todo.dueAt));
+    setEditDueTime(toTimeInputValue(todo.dueAt));
     setError(null);
   };
 
@@ -615,7 +635,10 @@ export default function Home() {
     setEditPriority("MEDIUM");
     setEditStatus("OPEN");
     setEditAssignee("SELF");
+    setEditStartDate("");
+    setEditStartTime("");
     setEditDueDate("");
+    setEditDueTime("");
     setEditSaving(false);
   };
 
@@ -623,7 +646,15 @@ export default function Home() {
     event.preventDefault();
     if (!editing) return;
     if (!editTitle.trim()) return setError("件名は必須です。");
-    if (!editDueDate) return setError("日付は必須です。");
+    if (!editDueDate) return setError("期限日付は必須です。");
+    if (editStartTime && !editStartDate) return setError("開始時刻を指定する場合は開始日も入力してください。");
+    if (editStartDate) {
+      const startIso = toJstDateTimeIso(editStartDate, editStartTime || undefined);
+      const dueIso = toJstDateTimeIso(editDueDate, editDueTime || undefined);
+      if (new Date(startIso).getTime() > new Date(dueIso).getTime()) {
+        return setError("開始日時は期限日時以前にしてください。");
+      }
+    }
     setEditSaving(true);
     try {
       const res = await fetch(`/api/todos/${editing.id}`, {
@@ -636,7 +667,8 @@ export default function Home() {
           priority: editPriority,
           status: editStatus,
           assigneeUserId: editAssignee,
-          dueAt: toJstMidnightIso(editDueDate),
+          startAt: editStartDate ? toJstDateTimeIso(editStartDate, editStartTime || undefined) : null,
+          dueAt: toJstDateTimeIso(editDueDate, editDueTime || undefined),
         }),
       });
       if (!res.ok) throw new Error(await getApiErrorMessage(res, "編集に失敗しました。"));
@@ -658,7 +690,10 @@ export default function Home() {
     setDupPriority("MEDIUM");
     setDupStatus("OPEN");
     setDupAssignee("SELF");
+    setDupStartDate("");
+    setDupStartTime("");
     setDupDueDate("");
+    setDupDueTime("");
     setDupSaving(false);
   };
 
@@ -666,14 +701,23 @@ export default function Home() {
     event.preventDefault();
     if (!dupSource) return;
     if (!dupTitle.trim()) return setError("件名は必須です。");
-    if (!dupDueDate) return setError("日付は必須です。");
+    if (!dupDueDate) return setError("期限日付は必須です。");
+    if (dupStartTime && !dupStartDate) return setError("開始時刻を指定する場合は開始日も入力してください。");
+    if (dupStartDate) {
+      const startIso = toJstDateTimeIso(dupStartDate, dupStartTime || undefined);
+      const dueIso = toJstDateTimeIso(dupDueDate, dupDueTime || undefined);
+      if (new Date(startIso).getTime() > new Date(dueIso).getTime()) {
+        return setError("開始日時は期限日時以前にしてください。");
+      }
+    }
     setDupSaving(true);
     try {
       const res = await fetch(`/api/todos/${dupSource.id}/duplicate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          dueDate: dupDueDate,
+          startAt: dupStartDate ? toJstDateTimeIso(dupStartDate, dupStartTime || undefined) : null,
+          dueAt: toJstDateTimeIso(dupDueDate, dupDueTime || undefined),
           title: dupTitle.trim(),
           memo: dupMemo.trim() || null,
           category: dupCategory,
@@ -690,6 +734,46 @@ export default function Home() {
     } catch (e) {
       setDupSaving(false);
       setError(e instanceof Error ? e.message : "次回分作成に失敗しました。");
+    }
+  };
+
+  const getKpiFetchUrl = (key: KpiKey) => {
+    if (key === "total") return "/api/todos";
+    if (key === "pending") return "/api/todos?completed=false";
+    if (key === "completed") return "/api/todos?completed=true";
+    if (key === "dueSoon") {
+      const params = new URLSearchParams({
+        completed: "false",
+        dueFrom: toJstStartIso(getTokyoYmdOffset(0)),
+        dueTo: toJstEndIso(getTokyoYmdOffset(7)),
+      });
+      return `/api/todos?${params.toString()}`;
+    }
+    const params = new URLSearchParams({
+      completed: "false",
+      dueTo: toJstEndIso(getTokyoYmdOffset(-1)),
+    });
+    return `/api/todos?${params.toString()}`;
+  };
+
+  const openKpiView = async (key: KpiKey) => {
+    if (window.innerWidth < 1280) {
+      router.push(`/tasks/summary/${key}`);
+      return;
+    }
+
+    setKpiModalKey(key);
+    setKpiLoading(true);
+    setKpiTodos([]);
+    try {
+      const res = await fetch(getKpiFetchUrl(key), { cache: "no-store" });
+      if (!res.ok) throw new Error(await getApiErrorMessage(res, "KPI一覧の取得に失敗しました。"));
+      setKpiTodos((await res.json()) as Todo[]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "KPI一覧の取得に失敗しました。");
+      setKpiModalKey(null);
+    } finally {
+      setKpiLoading(false);
     }
   };
 
@@ -721,6 +805,7 @@ export default function Home() {
         onLogout={() => void signOut({ callbackUrl: "/login" })}
         userDisplayName={userDisplayName}
         dashboardStats={stats}
+        onSelectKpi={(key) => void openKpiView(key)}
         search={search}
         filterCategory={filterCategory}
         filterPriority={filterPriority}
@@ -768,7 +853,7 @@ export default function Home() {
         onToggleSidebar={() => setDesktopSidebarCollapsed((prev) => !prev)}
       />
 
-      <main className="relative z-10 mx-auto w-full max-w-6xl px-4 py-6 pb-28 md:hidden">
+      <main className="relative z-10 mx-auto w-full max-w-6xl px-4 py-6 pb-28 min-[768px]:hidden">
         <section className="relative flex h-[clamp(72px,10vh,96px)] items-center overflow-hidden rounded-[22px] border border-[#bfdbf5] bg-[linear-gradient(128deg,#102f57_0%,#174786_55%,#2e66a4_100%)] px-3 text-white shadow-[0_18px_50px_-34px_#103058] sm:px-4 md:rounded-[24px] md:px-5">
           <div className="pointer-events-none absolute -right-10 -top-10 hidden h-24 w-24 rounded-full border border-white/20 sm:block" />
           <div className="pointer-events-none absolute right-20 top-2 hidden h-10 w-10 rounded-full border border-white/20 sm:block" />
@@ -845,7 +930,7 @@ export default function Home() {
         </section>
 
         <section className="mt-4 md:mt-6">
-          <div className="md:hidden">
+          <div className="min-[768px]:hidden">
             <button
               type="button"
               onClick={() => setKpiOpen((prev) => !prev)}
@@ -865,51 +950,51 @@ export default function Home() {
               className={`overflow-hidden transition-all duration-300 ${kpiOpen ? "mt-2 max-h-96" : "max-h-0"}`}
             >
               <div className="grid grid-cols-2 gap-2">
-                <article className="glass-card rounded-xl border border-[#d3e2f3] bg-white/90 p-2.5">
+                <button type="button" onClick={() => void openKpiView("total")} className="glass-card rounded-xl border border-[#d3e2f3] bg-white/90 p-2.5 text-left">
                   <p className="text-[10px] text-[#59799e]">総タスク</p>
                   <p className="mt-1 text-xl font-bold leading-none text-[#14355d]">{stats.total}</p>
-                </article>
-                <article className="glass-card rounded-xl border border-[#d3e2f3] bg-white/90 p-2.5">
+                </button>
+                <button type="button" onClick={() => void openKpiView("pending")} className="glass-card rounded-xl border border-[#d3e2f3] bg-white/90 p-2.5 text-left">
                   <p className="text-[10px] text-[#59799e]">未完了</p>
                   <p className="mt-1 text-xl font-bold leading-none text-[#14355d]">{stats.pending}</p>
-                </article>
-                <article className="glass-card rounded-xl border border-[#d3e2f3] bg-white/90 p-2.5">
+                </button>
+                <button type="button" onClick={() => void openKpiView("completed")} className="glass-card rounded-xl border border-[#d3e2f3] bg-white/90 p-2.5 text-left">
                   <p className="text-[10px] text-[#59799e]">完了</p>
                   <p className="mt-1 text-xl font-bold leading-none text-[#14355d]">{stats.completed}</p>
-                </article>
-                <article className="glass-card rounded-xl border border-[#d3e2f3] bg-white/90 p-2.5">
+                </button>
+                <button type="button" onClick={() => void openKpiView("dueSoon")} className="glass-card rounded-xl border border-[#d3e2f3] bg-white/90 p-2.5 text-left">
                   <p className="text-[10px] text-[#59799e]">7日以内</p>
                   <p className="mt-1 text-xl font-bold leading-none text-[#14355d]">{stats.dueSoon}</p>
-                </article>
-                <article className="glass-card col-span-2 rounded-xl border border-[#f0d3d8] bg-[#fff8f9] p-2.5">
+                </button>
+                <button type="button" onClick={() => void openKpiView("overdue")} className="glass-card col-span-2 rounded-xl border border-[#f0d3d8] bg-[#fff8f9] p-2.5 text-left">
                   <p className="text-[10px] text-[#916173]">期限切れ</p>
                   <p className="mt-1 text-xl font-bold leading-none text-[#a23247]">{stats.overdue}</p>
-                </article>
+                </button>
               </div>
             </div>
           </div>
 
-          <div className="hidden gap-2.5 md:flex">
-            <article className="glass-card min-w-[112px] flex-1 rounded-2xl border border-[#d3e2f3] bg-white/90 p-3 lg:p-4">
+          <div className="hidden gap-2.5 min-[768px]:flex">
+            <button type="button" onClick={() => void openKpiView("total")} className="glass-card min-w-[112px] flex-1 rounded-2xl border border-[#d3e2f3] bg-white/90 p-3 text-left lg:p-4">
               <p className="text-[11px] text-[#59799e]">総タスク</p>
               <p className="mt-1 text-[clamp(22px,2.2vw,30px)] font-bold leading-none text-[#14355d]">{stats.total}</p>
-            </article>
-            <article className="glass-card min-w-[112px] flex-1 rounded-2xl border border-[#d3e2f3] bg-white/90 p-3 lg:p-4">
+            </button>
+            <button type="button" onClick={() => void openKpiView("pending")} className="glass-card min-w-[112px] flex-1 rounded-2xl border border-[#d3e2f3] bg-white/90 p-3 text-left lg:p-4">
               <p className="text-[11px] text-[#59799e]">未完了</p>
               <p className="mt-1 text-[clamp(22px,2.2vw,30px)] font-bold leading-none text-[#14355d]">{stats.pending}</p>
-            </article>
-            <article className="glass-card min-w-[112px] flex-1 rounded-2xl border border-[#d3e2f3] bg-white/90 p-3 lg:p-4">
+            </button>
+            <button type="button" onClick={() => void openKpiView("completed")} className="glass-card min-w-[112px] flex-1 rounded-2xl border border-[#d3e2f3] bg-white/90 p-3 text-left lg:p-4">
               <p className="text-[11px] text-[#59799e]">完了</p>
               <p className="mt-1 text-[clamp(22px,2.2vw,30px)] font-bold leading-none text-[#14355d]">{stats.completed}</p>
-            </article>
-            <article className="glass-card min-w-[112px] flex-1 rounded-2xl border border-[#d3e2f3] bg-white/90 p-3 lg:p-4">
+            </button>
+            <button type="button" onClick={() => void openKpiView("dueSoon")} className="glass-card min-w-[112px] flex-1 rounded-2xl border border-[#d3e2f3] bg-white/90 p-3 text-left lg:p-4">
               <p className="text-[11px] text-[#59799e]">7日以内</p>
               <p className="mt-1 text-[clamp(22px,2.2vw,30px)] font-bold leading-none text-[#14355d]">{stats.dueSoon}</p>
-            </article>
-            <article className="glass-card min-w-[112px] flex-1 rounded-2xl border border-[#f0d3d8] bg-[#fff8f9] p-3 lg:p-4">
+            </button>
+            <button type="button" onClick={() => void openKpiView("overdue")} className="glass-card min-w-[112px] flex-1 rounded-2xl border border-[#f0d3d8] bg-[#fff8f9] p-3 text-left lg:p-4">
               <p className="text-[11px] text-[#916173]">期限切れ</p>
               <p className="mt-1 text-[clamp(22px,2.2vw,30px)] font-bold leading-none text-[#a23247]">{stats.overdue}</p>
-            </article>
+            </button>
           </div>
         </section>
 
@@ -1010,7 +1095,7 @@ export default function Home() {
       </main>
 
       {notificationOpen && (
-        <div className="fixed inset-x-4 bottom-24 z-30 md:hidden">
+        <div className="fixed inset-x-4 bottom-24 z-30 min-[768px]:hidden">
           <NotificationPanel
             notifications={notifications}
             onMarkRead={(id) => void markRead(id)}
@@ -1019,7 +1104,7 @@ export default function Home() {
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#d1dfef] bg-white/88 px-4 py-2.5 backdrop-blur supports-[padding:max(0px)]:pb-[max(0.625rem,env(safe-area-inset-bottom))] md:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#d1dfef] bg-white/88 px-4 py-2.5 backdrop-blur supports-[padding:max(0px)]:pb-[max(0.625rem,env(safe-area-inset-bottom))] min-[768px]:hidden">
         <div className="mx-auto flex w-full max-w-md items-center justify-between">
           <button
             type="button"
@@ -1039,7 +1124,7 @@ export default function Home() {
 
       <Link
         href="/tasks/new"
-        className="fixed bottom-24 right-4 z-50 inline-flex h-12 min-w-12 items-center justify-center rounded-full border border-[#9ac0e5] bg-[linear-gradient(135deg,#1d5da8_0%,#256ab8_100%)] px-3 text-sm font-semibold text-white shadow-[0_16px_30px_-18px_#12355d] transition-transform duration-200 active:scale-95 md:hidden"
+        className="fixed bottom-24 right-4 z-50 inline-flex h-12 min-w-12 items-center justify-center rounded-full border border-[#9ac0e5] bg-[linear-gradient(135deg,#1d5da8_0%,#256ab8_100%)] px-3 text-sm font-semibold text-white shadow-[0_16px_30px_-18px_#12355d] transition-transform duration-200 active:scale-95 min-[768px]:hidden"
         aria-label="新規作成"
       >
         <span className="mr-1 text-lg leading-none">+</span>
@@ -1059,12 +1144,54 @@ export default function Home() {
         ↑ トップへ
       </button>
 
+      {kpiModalKey && (
+        <div className="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1d33]/45 p-6 min-[1280px]:flex">
+          <div className="w-full max-w-4xl rounded-2xl border border-[#d3e2f3] bg-white p-5 shadow-[0_28px_60px_-35px_#0f2d53]">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-[#17355f]">
+                {kpiModalKey === "total" && "総タスク一覧"}
+                {kpiModalKey === "pending" && "未完了タスク一覧"}
+                {kpiModalKey === "completed" && "完了タスク一覧"}
+                {kpiModalKey === "dueSoon" && "7日以内タスク一覧"}
+                {kpiModalKey === "overdue" && "期限切れタスク一覧"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setKpiModalKey(null)}
+                className="rounded-lg border border-[#cfdbeb] px-3 py-1.5 text-xs"
+              >
+                閉じる
+              </button>
+            </div>
+            {kpiLoading ? (
+              <p className="py-8 text-sm text-[#5d7898]">読み込み中...</p>
+            ) : kpiTodos.length === 0 ? (
+              <p className="py-8 text-sm text-[#5d7898]">該当タスクはありません。</p>
+            ) : (
+              <ul className="max-h-[65vh] space-y-2 overflow-auto pr-1">
+                {kpiTodos.map((todo) => (
+                  <li key={todo.id} className="rounded-xl border border-[#d8e6f5] bg-[#fbfdff] p-3">
+                    <p className="text-sm font-semibold text-[#163960]">{todo.title}</p>
+                    <p className="mt-1 text-xs text-[#47688f]">
+                      開始: {todo.startAt ? `${toDateInputValue(todo.startAt)} ${toTimeInputValue(todo.startAt)}` : toDateInputValue(todo.createdAt)} / 期限: {toDateInputValue(todo.dueAt)} {toTimeInputValue(todo.dueAt)}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
       {dupSource && (
         <DuplicateTodoModal
           source={dupSource}
           title={dupTitle}
           memo={dupMemo}
+          startDate={dupStartDate}
+          startTime={dupStartTime}
           dueDate={dupDueDate}
+          dueTime={dupDueTime}
           category={dupCategory}
           categoryOptions={categoryOptions}
           categoryLabelMap={categoryLabelMap}
@@ -1074,7 +1201,10 @@ export default function Home() {
           saving={dupSaving}
           onTitleChange={setDupTitle}
           onMemoChange={setDupMemo}
+          onStartDateChange={setDupStartDate}
+          onStartTimeChange={setDupStartTime}
           onDueDateChange={setDupDueDate}
+          onDueTimeChange={setDupDueTime}
           onCategoryChange={setDupCategory}
           onPriorityChange={setDupPriority}
           onStatusChange={setDupStatus}
@@ -1088,7 +1218,10 @@ export default function Home() {
         <EditTodoModal
           title={editTitle}
           memo={editMemo}
+          startDate={editStartDate}
+          startTime={editStartTime}
           dueDate={editDueDate}
+          dueTime={editDueTime}
           category={editCategory}
           categoryOptions={categoryOptions}
           categoryLabelMap={categoryLabelMap}
@@ -1098,7 +1231,10 @@ export default function Home() {
           saving={editSaving}
           onTitleChange={setEditTitle}
           onMemoChange={setEditMemo}
+          onStartDateChange={setEditStartDate}
+          onStartTimeChange={setEditStartTime}
           onDueDateChange={setEditDueDate}
+          onDueTimeChange={setEditDueTime}
           onCategoryChange={setEditCategory}
           onPriorityChange={setEditPriority}
           onStatusChange={setEditStatus}

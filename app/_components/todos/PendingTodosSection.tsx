@@ -13,7 +13,7 @@
   type SelectableStatus,
   type Todo,
 } from "./model";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type PendingTodosSectionProps = {
   loading: boolean;
@@ -68,6 +68,8 @@ export function PendingTodosSection({
 }: PendingTodosSectionProps) {
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [filterHoverOpen, setFilterHoverOpen] = useState(false);
+  const [isPc, setIsPc] = useState(false);
+  const filterRootRef = useRef<HTMLDivElement | null>(null);
   const filterOpen = mobileFilterOpen || filterHoverOpen;
   const mobileCategoryOptions: SelectableCategory[] = ["ALL", ...categoryOptions];
   const priorityOptions: SelectablePriority[] = ["ALL", "HIGH", "MEDIUM", "LOW"];
@@ -75,6 +77,35 @@ export function PendingTodosSection({
   const statusOptions: SelectableStatus[] = ["ALL", "OPEN", "IN_PROGRESS", "BLOCKED", "DONE"];
   const dueOptions: DueFilter[] = ["ALL", "TODAY", "IN_7_DAYS", "OVERDUE"];
   const allSelected = todos.length > 0 && todos.every((todo) => selectedIds.has(todo.id));
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1280px)");
+    const apply = () => setIsPc(media.matches);
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, []);
+
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      if (!filterRootRef.current) return;
+      const target = event.target as Node;
+      if (filterRootRef.current.contains(target)) return;
+      setMobileFilterOpen(false);
+      setFilterHoverOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setMobileFilterOpen(false);
+      setFilterHoverOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
 
   return (
     <section className="mt-6 glass-card rounded-[28px] border border-[#d2e0f0] bg-white/80 p-5 md:p-6">
@@ -100,13 +131,21 @@ export function PendingTodosSection({
       </div>
 
       <div
+        ref={filterRootRef}
         className="mb-2"
-        onMouseEnter={() => setFilterHoverOpen(true)}
-        onMouseLeave={() => setFilterHoverOpen(false)}
+        onMouseEnter={() => {
+          if (isPc) setFilterHoverOpen(true);
+        }}
+        onMouseLeave={() => {
+          if (isPc) setFilterHoverOpen(false);
+        }}
       >
         <button
           type="button"
-          onClick={() => setMobileFilterOpen((prev) => !prev)}
+          onClick={() => {
+            setMobileFilterOpen((prev) => !prev);
+            setFilterHoverOpen(false);
+          }}
           className="flex w-full items-center justify-between rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm font-semibold text-[#24558f] shadow-[inset_0_1px_0_#ffffff]"
           aria-expanded={filterOpen}
           aria-controls="search-filter-panel"

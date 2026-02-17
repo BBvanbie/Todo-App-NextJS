@@ -40,7 +40,7 @@ export default function CalendarPage() {
   }, []);
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8">
+    <main className="mx-auto w-full max-w-6xl px-4 py-6 min-[768px]:px-8 min-[1280px]:py-8">
       <section className="mb-4 flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5b7ea5]">
@@ -70,4 +70,3 @@ export default function CalendarPage() {
     </main>
   );
 }
-

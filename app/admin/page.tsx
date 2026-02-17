@@ -110,7 +110,7 @@ export default async function AdminPage() {
   ];
 
   return (
-    <main className="relative mx-auto w-full max-w-6xl overflow-hidden px-4 py-8 md:px-8 md:py-10">
+    <main className="relative mx-auto w-full max-w-6xl overflow-hidden px-4 py-8 min-[768px]:px-8 min-[768px]:py-10">
       <div className="pointer-events-none absolute -left-28 top-0 h-72 w-72 rounded-full bg-[radial-gradient(circle,#9ad3ff_0%,#9ad3ff00_70%)]" />
       <div className="pointer-events-none absolute -right-24 top-16 h-80 w-80 rounded-full bg-[radial-gradient(circle,#b8ffd8_0%,#b8ffd800_68%)]" />
 
@@ -137,7 +137,7 @@ export default async function AdminPage() {
         </div>
       </section>
 
-      <section className="mt-6 grid gap-4 md:grid-cols-4">
+      <section className="mt-6 grid gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {metricCards.map((card) => (
           <article
             key={card.label}
@@ -150,7 +150,7 @@ export default async function AdminPage() {
         ))}
       </section>
 
-      <section className="mt-6 grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+      <section className="mt-6 grid gap-4 min-[1024px]:grid-cols-[1.5fr_1fr]">
         <article className="glass-card rounded-3xl p-5 md:p-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-bold text-[#12345b]">ユーザー別アクティビティ</h2>

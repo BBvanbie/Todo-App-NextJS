@@ -9,6 +9,7 @@ import {
 } from "@/lib/categories";
 import { prisma } from "@/lib/prisma";
 import { ensureTodoAssigneeColumn, parseAssigneeInput } from "@/lib/todo-assignee";
+import { ensureTodoStartAtColumn } from "@/lib/todo-start-at";
 import { ensureTodoDeletedAtColumn } from "@/lib/todo-soft-delete";
 import {
   completedFromStatus,
@@ -23,6 +24,7 @@ type UpdateTodoInput = {
   completed?: unknown;
   status?: unknown;
   assigneeUserId?: unknown;
+  startAt?: unknown;
   dueAt?: unknown;
   memo?: unknown;
   category?: unknown;
@@ -36,6 +38,16 @@ function parseId(id: string): number | null {
 }
 
 function parseDueAt(value: unknown): Date | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  if (typeof value !== "string") return undefined;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date;
+}
+
+function parseStartAt(value: unknown): Date | null | undefined {
   if (value === undefined) return undefined;
   if (value === null || value === "") return null;
   if (typeof value !== "string") return undefined;
@@ -62,6 +74,11 @@ function parsePriority(value: unknown): TodoPriority | undefined {
     : undefined;
 }
 
+function isInvalidDateRange(startAt: Date | null | undefined, dueAt: Date | undefined) {
+  if (startAt === undefined || dueAt === undefined || startAt === null) return false;
+  return startAt.getTime() > dueAt.getTime();
+}
+
 type TodoRow = {
   id: number;
   userId: string | null;
@@ -74,6 +91,7 @@ type TodoRow = {
   assigneeUserId: string | null;
   completed: boolean;
   dueAt: Date;
+  startAt: Date | null;
   completedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -88,6 +106,7 @@ function buildTodoChanges(before: TodoRow, after: TodoRow) {
     "status",
     "assigneeUserId",
     "completed",
+    "startAt",
     "dueAt",
     "completedAt",
   ];
@@ -132,12 +151,14 @@ export async function PATCH(
     await ensureTodoCategoryColumnText();
     await ensureTodoStatusColumn();
     await ensureTodoAssigneeColumn();
+    await ensureTodoStartAtColumn();
     await ensureTodoDeletedAtColumn();
 
     const body = (await request.json()) as UpdateTodoInput;
     const shouldLogEdit =
       body.title !== undefined ||
       body.dueAt !== undefined ||
+      body.startAt !== undefined ||
       body.memo !== undefined ||
       body.category !== undefined ||
       body.priority !== undefined ||
@@ -153,6 +174,7 @@ export async function PATCH(
       assigneeUserId?: string | null;
       completed?: boolean;
       dueAt?: Date;
+      startAt?: Date | null;
       completedAt?: Date | null;
     } = {};
 
@@ -223,6 +245,28 @@ export async function PATCH(
         });
       }
       data.dueAt = dueAt;
+    }
+
+    if (body.startAt !== undefined) {
+      const startAt = parseStartAt(body.startAt);
+      if (startAt === undefined) {
+        return errorJson({
+          status: 400,
+          code: "INVALID_START_AT",
+          message: "startAt must be a valid ISO datetime string or null.",
+          requestId,
+        });
+      }
+      data.startAt = startAt;
+    }
+
+    if (isInvalidDateRange(data.startAt, data.dueAt)) {
+      return errorJson({
+        status: 400,
+        code: "INVALID_DATE_RANGE",
+        message: "startAt must be earlier than or equal to dueAt.",
+        requestId,
+      });
     }
 
     if (body.memo !== undefined) {
@@ -312,6 +356,17 @@ export async function PATCH(
       });
     }
 
+    const nextStartAt = data.startAt === undefined ? beforeTodo.startAt : data.startAt;
+    const nextDueAt = data.dueAt ?? beforeTodo.dueAt;
+    if (nextStartAt !== null && nextStartAt.getTime() > nextDueAt.getTime()) {
+      return errorJson({
+        status: 400,
+        code: "INVALID_DATE_RANGE",
+        message: "startAt must be earlier than or equal to dueAt.",
+        requestId,
+      });
+    }
+
     const setClauses: string[] = [];
     const values: unknown[] = [];
 
@@ -346,6 +401,10 @@ export async function PATCH(
     if (data.dueAt !== undefined) {
       values.push(data.dueAt);
       setClauses.push(`"dueAt" = $${values.length}`);
+    }
+    if (data.startAt !== undefined) {
+      values.push(data.startAt);
+      setClauses.push(`"startAt" = $${values.length}`);
     }
     if (data.completedAt !== undefined) {
       values.push(data.completedAt);

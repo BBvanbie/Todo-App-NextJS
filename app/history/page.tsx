@@ -194,7 +194,7 @@ export default async function HistoryPage({
   };
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-8">
+    <main className="mx-auto w-full max-w-5xl px-4 py-8 min-[768px]:px-8 min-[1280px]:max-w-6xl">
       <section className="glass-card rounded-3xl p-6">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -245,7 +245,7 @@ export default async function HistoryPage({
           <p className="text-xs text-[#5c7392]">{totalCount}\u4ef6</p>
         </div>
 
-        <form className="mb-4 grid gap-2 md:grid-cols-4">
+        <form className="mb-4 grid gap-2 min-[1024px]:grid-cols-4">
           <select
             name="action"
             defaultValue={action}

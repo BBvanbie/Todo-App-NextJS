@@ -206,7 +206,7 @@ export default function CategoriesPage() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-8 md:px-8 md:py-10">
+    <main className="mx-auto w-full max-w-4xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-10 min-[1280px]:max-w-5xl">
       <section className="relative overflow-hidden rounded-3xl border border-[#bfd5ef] bg-[linear-gradient(120deg,#f5faff_0%,#eef7ff_45%,#ecf3ff_100%)] p-5 shadow-[0_22px_55px_-35px_#12355d] md:p-8">
         <div className="pointer-events-none absolute -right-12 -top-14 h-40 w-40 rounded-full bg-[radial-gradient(circle,#90beff66_0%,#90beff00_72%)]" />
         <div className="pointer-events-none absolute -left-10 bottom-0 h-32 w-32 rounded-full bg-[radial-gradient(circle,#9bead566_0%,#9bead500_72%)]" />
@@ -225,7 +225,7 @@ export default function CategoriesPage() {
           </Link>
         </div>
 
-        <div className="relative mt-5 grid gap-4 md:grid-cols-[1.1fr_1fr]">
+        <div className="relative mt-5 grid gap-4 min-[1024px]:grid-cols-[1.1fr_1fr]">
           <form onSubmit={onCreate} className="rounded-2xl border border-[#d1e0f1] bg-white/92 p-4">
             <p className="text-sm font-semibold text-[#17355f]">新しいカテゴリを追加</p>
             <p className="mt-1 text-xs text-[#547294]">残り {remaining} 件</p>

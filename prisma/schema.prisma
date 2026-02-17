@@ -130,6 +130,7 @@ model Todo {
   priority    TodoPriority @default(MEDIUM)
   status      TodoStatus   @default(OPEN)
   completed   Boolean      @default(false)
+  startAt     DateTime?
   dueAt       DateTime
   completedAt DateTime?
   createdAt   DateTime     @default(now())

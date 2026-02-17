@@ -13,7 +13,10 @@ type DuplicateTodoModalProps = {
   source: Todo;
   title: string;
   memo: string;
+  startDate: string;
+  startTime: string;
   dueDate: string;
+  dueTime: string;
   category: TodoCategory;
   priority: TodoPriority;
   status: TodoStatus;
@@ -23,7 +26,10 @@ type DuplicateTodoModalProps = {
   saving: boolean;
   onTitleChange: (value: string) => void;
   onMemoChange: (value: string) => void;
+  onStartDateChange: (value: string) => void;
+  onStartTimeChange: (value: string) => void;
   onDueDateChange: (value: string) => void;
+  onDueTimeChange: (value: string) => void;
   onCategoryChange: (value: TodoCategory) => void;
   onPriorityChange: (value: TodoPriority) => void;
   onStatusChange: (value: TodoStatus) => void;
@@ -36,7 +42,10 @@ export function DuplicateTodoModal({
   source,
   title,
   memo,
+  startDate,
+  startTime,
   dueDate,
+  dueTime,
   category,
   priority,
   status,
@@ -46,7 +55,10 @@ export function DuplicateTodoModal({
   saving,
   onTitleChange,
   onMemoChange,
+  onStartDateChange,
+  onStartTimeChange,
   onDueDateChange,
+  onDueTimeChange,
   onCategoryChange,
   onPriorityChange,
   onStatusChange,
@@ -78,14 +90,44 @@ export function DuplicateTodoModal({
             onChange={(event) => onTitleChange(event.target.value)}
             className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm"
           />
+          <label className="block text-sm text-muted" htmlFor="dupStartDate">
+            開始日（任意）
+          </label>
+          <input
+            id="dupStartDate"
+            type="date"
+            value={startDate}
+            onChange={(event) => onStartDateChange(event.target.value)}
+            className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm"
+          />
+          <label className="block text-sm text-muted" htmlFor="dupStartTime">
+            開始時刻（任意）
+          </label>
+          <input
+            id="dupStartTime"
+            type="time"
+            value={startTime}
+            onChange={(event) => onStartTimeChange(event.target.value)}
+            className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm"
+          />
           <label className="block text-sm text-muted" htmlFor="dupDueDate">
-            日付
+            期限日付
           </label>
           <input
             id="dupDueDate"
             type="date"
             value={dueDate}
             onChange={(event) => onDueDateChange(event.target.value)}
+            className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm"
+          />
+          <label className="block text-sm text-muted" htmlFor="dupDueTime">
+            期限時刻（任意）
+          </label>
+          <input
+            id="dupDueTime"
+            type="time"
+            value={dueTime}
+            onChange={(event) => onDueTimeChange(event.target.value)}
             className="w-full rounded-xl border border-[#c9d8ea] bg-white px-3 py-2 text-sm"
           />
           <label className="block text-sm text-muted" htmlFor="dupMemo">

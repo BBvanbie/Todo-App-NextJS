@@ -1,5 +1,5 @@
 ﻿import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   DUE_FILTER_LABEL,
   PRIORITY_LABEL,
@@ -32,6 +32,7 @@ type DesktopDashboardProps = {
   onLogout: () => void;
   userDisplayName: string;
   dashboardStats: { total: number; pending: number; completed: number; dueSoon: number; overdue: number };
+  onSelectKpi: (key: "total" | "pending" | "completed" | "dueSoon" | "overdue") => void;
   search: string;
   filterCategory: SelectableCategory;
   filterPriority: SelectablePriority;
@@ -138,6 +139,7 @@ export function DesktopDashboard(props: DesktopDashboardProps) {
     onLogout,
     userDisplayName,
     dashboardStats,
+    onSelectKpi,
     search,
     filterCategory,
     filterPriority,
@@ -178,12 +180,43 @@ export function DesktopDashboard(props: DesktopDashboardProps) {
   const [filterPinnedOpen, setFilterPinnedOpen] = useState(false);
   const [filterHoverOpen, setFilterHoverOpen] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [isPc, setIsPc] = useState(false);
+  const filterRootRef = useRef<HTMLDivElement | null>(null);
   const filterOpen = filterPinnedOpen || filterHoverOpen;
   const pendingAllSelected = pendingTodos.length > 0 && pendingTodos.every((todo) => selectedIds.has(todo.id));
   const completedAllSelected = completedTodos.length > 0 && completedTodos.every((todo) => selectedIds.has(todo.id));
 
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1280px)");
+    const apply = () => setIsPc(media.matches);
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, []);
+
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      if (!filterRootRef.current) return;
+      const target = event.target as Node;
+      if (filterRootRef.current.contains(target)) return;
+      setFilterPinnedOpen(false);
+      setFilterHoverOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setFilterPinnedOpen(false);
+      setFilterHoverOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
+
   return (
-    <div className="relative hidden md:flex md:min-h-screen md:overflow-y-auto xl:h-screen xl:overflow-hidden">
+    <div className="relative hidden min-[768px]:flex min-[768px]:min-h-screen min-[768px]:overflow-y-auto min-[1280px]:h-screen min-[1280px]:overflow-hidden">
       <aside
         onMouseLeave={() => setMenuVisible(false)}
         className={`fixed inset-y-0 left-0 top-0 z-30 h-screen border-r border-[#173956] bg-[linear-gradient(180deg,#0a243f_0%,#0f3458_45%,#14466d_100%)] text-white transition-all duration-200 ${
@@ -239,24 +272,42 @@ export function DesktopDashboard(props: DesktopDashboardProps) {
           <section className="shrink-0">
             <div className="grid grid-cols-2 gap-2 md:grid-cols-5 lg:gap-3">
               {[
-                { label: T.total, value: dashboardStats.total },
-                { label: T.pending, value: dashboardStats.pending },
-                { label: T.done, value: dashboardStats.completed },
-                { label: T.dueSoon, value: dashboardStats.dueSoon },
-                { label: T.overdue, value: dashboardStats.overdue },
+                { key: "total" as const, label: T.total, value: dashboardStats.total },
+                { key: "pending" as const, label: T.pending, value: dashboardStats.pending },
+                { key: "completed" as const, label: T.done, value: dashboardStats.completed },
+                { key: "dueSoon" as const, label: T.dueSoon, value: dashboardStats.dueSoon },
+                { key: "overdue" as const, label: T.overdue, value: dashboardStats.overdue },
               ].map((item, idx) => (
-                <article key={item.label} className={`rounded-2xl border border-[#d5e3f3] border-t-[3px] bg-white px-3 py-2 md:px-4 md:py-2.5 shadow-[0_10px_24px_-22px_#163a66] ${KPI_ACCENT[idx]}`}>
+                <button type="button" onClick={() => onSelectKpi(item.key)} key={item.label} className={`rounded-2xl border border-[#d5e3f3] border-t-[3px] bg-white px-3 py-2 text-left md:px-4 md:py-2.5 shadow-[0_10px_24px_-22px_#163a66] ${KPI_ACCENT[idx]}`}>
                   <p className="text-[11px] text-[#5f7d9d]">{item.label}</p>
                   <p className="mt-0.5 text-lg font-bold leading-tight text-[#17355f] md:text-xl lg:text-2xl xl:text-[26px]">{item.value}</p>
-                </article>
+                </button>
               ))}
             </div>
           </section>
 
-          <section className="mt-3 shrink-0 rounded-2xl border border-[#d5e3f3] bg-white p-3 shadow-[0_16px_36px_-30px_#17355f] lg:mt-4 lg:p-4" onMouseEnter={() => setFilterHoverOpen(true)} onMouseLeave={() => setFilterHoverOpen(false)}>
+          <section
+            ref={filterRootRef}
+            className="mt-3 shrink-0 rounded-2xl border border-[#d5e3f3] bg-white p-3 shadow-[0_16px_36px_-30px_#17355f] lg:mt-4 lg:p-4"
+            onMouseEnter={() => {
+              if (isPc) setFilterHoverOpen(true);
+            }}
+            onMouseLeave={() => {
+              if (isPc) setFilterHoverOpen(false);
+            }}
+          >
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-semibold tracking-[0.12em] text-[#4d6c90]">{T.filters}</p>
-              <button type="button" onClick={() => setFilterPinnedOpen((prev) => !prev)} className="rounded-lg border border-[#c9d9ea] bg-[#f7fbff] px-3 py-1 text-xs font-semibold text-[#2f5682]" aria-expanded={filterOpen} aria-controls="desktop-search-filter-panel">
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterPinnedOpen((prev) => !prev);
+                  setFilterHoverOpen(false);
+                }}
+                className="rounded-lg border border-[#c9d9ea] bg-[#f7fbff] px-3 py-1 text-xs font-semibold text-[#2f5682]"
+                aria-expanded={filterOpen}
+                aria-controls="desktop-search-filter-panel"
+              >
                 {filterOpen ? T.close : T.open}
               </button>
             </div>
@@ -272,8 +323,8 @@ export function DesktopDashboard(props: DesktopDashboardProps) {
             </div>
           </section>
 
-          <section className="mt-3 grid grid-cols-1 gap-3 lg:mt-4 lg:gap-4 xl:min-h-0 xl:flex-1 xl:grid-cols-2">
-            <div className="col-span-1 grid min-h-0 gap-3 lg:grid-cols-2 lg:gap-4 xl:grid-cols-1 xl:grid-rows-2">
+          <section className="mt-3 grid grid-cols-1 gap-3 min-[1024px]:mt-4 min-[1024px]:gap-4 min-[1024px]:grid-cols-2 min-[1280px]:min-h-0 min-[1280px]:flex-1">
+            <div className="col-span-1 grid min-h-0 gap-3 min-[1024px]:gap-4 min-[1280px]:grid-rows-2">
               <div className="flex min-h-0 flex-col rounded-2xl border border-[#d5e3f3] bg-white shadow-[0_16px_36px_-30px_#17355f]">
                 <div className="flex items-center justify-between border-b border-[#e8f0f8] px-4 py-3"><h2 className="text-sm font-semibold text-[#17355f]">{T.pendingTasks}</h2><label className="inline-flex items-center gap-1 text-xs text-[#47688f]"><input type="checkbox" checked={pendingAllSelected} onChange={(e) => onToggleSelectPendingAll(e.target.checked)} />{T.allSelect}</label></div>
                 <div className="min-h-0 flex-1 overflow-auto">

@@ -1,4 +1,4 @@
-﻿CREATE TABLE IF NOT EXISTS "UserBuiltinCategoryLabel" (
+CREATE TABLE IF NOT EXISTS "UserBuiltinCategoryLabel" (
   "id" SERIAL PRIMARY KEY,
   "userId" TEXT NOT NULL,
   "builtinKey" TEXT NOT NULL,
@@ -9,3 +9,4 @@
 
 CREATE UNIQUE INDEX IF NOT EXISTS "UserBuiltinCategoryLabel_userId_builtinKey_key"
   ON "UserBuiltinCategoryLabel"("userId", "builtinKey");
+

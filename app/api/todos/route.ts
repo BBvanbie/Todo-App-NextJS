@@ -8,6 +8,7 @@ import {
 } from "@/lib/categories";
 import { prisma } from "@/lib/prisma";
 import { ensureTodoAssigneeColumn, parseAssigneeInput } from "@/lib/todo-assignee";
+import { ensureTodoStartAtColumn } from "@/lib/todo-start-at";
 import { ensureTodoDeletedAtColumn } from "@/lib/todo-soft-delete";
 import {
   completedFromStatus,
@@ -18,6 +19,7 @@ import { TodoPriority } from "@/src/generated/prisma";
 
 type CreateTodoInput = {
   title?: unknown;
+  startAt?: unknown;
   dueAt?: unknown;
   memo?: unknown;
   category?: unknown;
@@ -27,6 +29,16 @@ type CreateTodoInput = {
 };
 
 function parseDueAt(value: unknown): Date | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  if (typeof value !== "string") return undefined;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date;
+}
+
+function parseStartAt(value: unknown): Date | null | undefined {
   if (value === undefined) return undefined;
   if (value === null || value === "") return null;
   if (typeof value !== "string") return undefined;
@@ -60,6 +72,10 @@ function parseBooleanQuery(value: string | null): boolean | undefined {
   return undefined;
 }
 
+function isInvalidDateRange(startAt: Date | null, dueAt: Date) {
+  return startAt !== null && startAt.getTime() > dueAt.getTime();
+}
+
 export async function GET(request: Request) {
   const requestId = getRequestId(request);
   const userId = await getAuthenticatedUserId();
@@ -76,6 +92,7 @@ export async function GET(request: Request) {
     await ensureTodoCategoryColumnText();
     await ensureTodoStatusColumn();
     await ensureTodoAssigneeColumn();
+    await ensureTodoStartAtColumn();
     await ensureTodoDeletedAtColumn();
 
     const url = new URL(request.url);
@@ -213,6 +230,7 @@ export async function GET(request: Request) {
         status: "OPEN" | "IN_PROGRESS" | "BLOCKED" | "DONE";
         assigneeUserId: string | null;
         completed: boolean;
+        startAt: Date | null;
         dueAt: Date;
         completedAt: Date | null;
         deletedAt: Date | null;
@@ -257,6 +275,7 @@ export async function POST(request: Request) {
     await ensureTodoCategoryColumnText();
     await ensureTodoStatusColumn();
     await ensureTodoAssigneeColumn();
+    await ensureTodoStartAtColumn();
     await ensureTodoDeletedAtColumn();
 
     const body = (await request.json()) as CreateTodoInput;
@@ -276,6 +295,16 @@ export async function POST(request: Request) {
         status: 400,
         code: "INVALID_DUE_AT",
         message: "dueAt is required and must be a valid ISO datetime string.",
+        requestId,
+      });
+    }
+
+    const parsedStartAt = parseStartAt(body.startAt);
+    if (body.startAt !== undefined && parsedStartAt === undefined) {
+      return errorJson({
+        status: 400,
+        code: "INVALID_START_AT",
+        message: "startAt must be a valid ISO datetime string.",
         requestId,
       });
     }
@@ -342,6 +371,15 @@ export async function POST(request: Request) {
         requestId,
       });
     }
+    const startAt = parsedStartAt === undefined || parsedStartAt === null ? new Date() : parsedStartAt;
+    if (isInvalidDateRange(startAt, dueAt)) {
+      return errorJson({
+        status: 400,
+        code: "INVALID_DATE_RANGE",
+        message: "startAt must be earlier than or equal to dueAt.",
+        requestId,
+      });
+    }
 
     const inserted = await prisma.$queryRaw<
       Array<{
@@ -354,6 +392,7 @@ export async function POST(request: Request) {
         status: "OPEN" | "IN_PROGRESS" | "BLOCKED" | "DONE";
         assigneeUserId: string | null;
         completed: boolean;
+        startAt: Date | null;
         dueAt: Date;
         completedAt: Date | null;
         deletedAt: Date | null;
@@ -370,6 +409,7 @@ export async function POST(request: Request) {
         "status",
         "assigneeUserId",
         "completed",
+        "startAt",
         "dueAt",
         "completedAt",
         "createdAt",
@@ -384,6 +424,7 @@ export async function POST(request: Request) {
         ${status},
         ${assigneeUserId},
         ${completed},
+        ${startAt},
         ${dueAt},
         ${completedAt},
         NOW(),

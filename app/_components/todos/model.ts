@@ -17,6 +17,7 @@ export type Todo = {
   status: TodoStatus;
   assigneeUserId: string | null;
   completed: boolean;
+  startAt: string | null;
   dueAt: string;
   completedAt: string | null;
   createdAt: string;
@@ -97,8 +98,16 @@ export function toDateInputValue(isoString: string) {
   return `${y}-${m}-${day}`;
 }
 
-export function toJstMidnightIso(dateInput: string) {
-  return new Date(`${dateInput}T00:00:00+09:00`).toISOString();
+export function toTimeInputValue(isoString: string) {
+  const d = new Date(isoString);
+  const h = String(d.getHours()).padStart(2, "0");
+  const m = String(d.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+export function toJstDateTimeIso(dateInput: string, timeInput?: string) {
+  const normalizedTime = timeInput && /^\d{2}:\d{2}$/.test(timeInput) ? timeInput : "00:00";
+  return new Date(`${dateInput}T${normalizedTime}:00+09:00`).toISOString();
 }
 
 function getTokyoYmd(value: string | Date) {

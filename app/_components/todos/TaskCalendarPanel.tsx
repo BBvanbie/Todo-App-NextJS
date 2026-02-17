@@ -83,14 +83,14 @@ function sliceWeekSegments(week: DayCell[], todos: Todo[]): Segment[] {
 
   const raw: Array<Omit<Segment, "lane">> = [];
   for (const todo of todos) {
-    const created = keyFromParts(toTokyoParts(todo.createdAt));
+    const start = keyFromParts(toTokyoParts(todo.startAt ?? todo.createdAt));
     const due = keyFromParts(toTokyoParts(todo.dueAt));
-    if (due < weekStartKey || created > weekEndKey) continue;
+    if (due < weekStartKey || start > weekEndKey) continue;
 
     let colStart = 0;
     let colEnd = 6;
     for (let i = 0; i < 7; i += 1) {
-      if (week[i].key >= created) {
+      if (week[i].key >= start) {
         colStart = i;
         break;
       }
@@ -244,7 +244,7 @@ export function TaskCalendarPanel({ todos, compact = false, disableScroll = fals
                           height: 14,
                           lineHeight: "14px",
                         }}
-                        title={`${seg.todo.title} (${new Intl.DateTimeFormat("ja-JP").format(new Date(seg.todo.createdAt))} - ${new Intl.DateTimeFormat("ja-JP").format(new Date(seg.todo.dueAt))})`}
+                        title={`${seg.todo.title} (${new Intl.DateTimeFormat("ja-JP").format(new Date(seg.todo.startAt ?? seg.todo.createdAt))} - ${new Intl.DateTimeFormat("ja-JP").format(new Date(seg.todo.dueAt))})`}
                       >
                         <span className="block truncate">{seg.todo.title}</span>
                       </div>
@@ -264,4 +264,3 @@ export function TaskCalendarPanel({ todos, compact = false, disableScroll = fals
     </section>
   );
 }
-

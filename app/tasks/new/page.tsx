@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { NewTaskForm } from "@/app/_components/new-task/NewTaskForm";
 import {
-  toJstMidnightIso,
+  toJstDateTimeIso,
   type TodoCategory,
   type TodoAssigneeInput,
   type TodoPriority,
@@ -19,7 +19,10 @@ type CategoriesResponse = {
 export default function NewTaskPage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [startTime, setStartTime] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
   const [memo, setMemo] = useState("");
   const [categoryOptions, setCategoryOptions] = useState<string[]>(["WORK", "OTHER"]);
   const [categoryLabelMap, setCategoryLabelMap] = useState<Record<string, string>>({
@@ -67,7 +70,16 @@ export default function NewTaskPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!title.trim()) return setError("件名は必須です。");
-    if (!dueDate) return setError("日付は必須です。");
+    if (!dueDate) return setError("期限日付は必須です。");
+    if (startTime && !startDate) return setError("開始時刻を指定する場合は開始日も入力してください。");
+
+    if (startDate) {
+      const startIso = toJstDateTimeIso(startDate, startTime || undefined);
+      const dueIso = toJstDateTimeIso(dueDate, dueTime || undefined);
+      if (new Date(startIso).getTime() > new Date(dueIso).getTime()) {
+        return setError("開始日時は期限日時以前にしてください。");
+      }
+    }
 
     setError(null);
     setSaving(true);
@@ -78,7 +90,8 @@ export default function NewTaskPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
-          dueAt: toJstMidnightIso(dueDate),
+          startAt: startDate ? toJstDateTimeIso(startDate, startTime || undefined) : undefined,
+          dueAt: toJstDateTimeIso(dueDate, dueTime || undefined),
           memo: memo.trim() || null,
           category,
           priority,
@@ -104,7 +117,10 @@ export default function NewTaskPage() {
   return (
     <NewTaskForm
       title={title}
+      startDate={startDate}
+      startTime={startTime}
       dueDate={dueDate}
+      dueTime={dueTime}
       memo={memo}
       category={category}
       priority={priority}
@@ -115,7 +131,10 @@ export default function NewTaskPage() {
       saving={saving}
       error={error}
       onTitleChange={setTitle}
+      onStartDateChange={setStartDate}
+      onStartTimeChange={setStartTime}
       onDueDateChange={setDueDate}
+      onDueTimeChange={setDueTime}
       onMemoChange={setMemo}
       onCategoryChange={setCategory}
       onPriorityChange={setPriority}
