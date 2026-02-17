@@ -64,8 +64,8 @@ export function EditTodoModal({
   onSubmit,
 }: EditTodoModalProps) {
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#0f1f35]/45 px-4">
-      <div className="glass-card w-full max-w-xl rounded-2xl p-5">
+    <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-[#0f1f35]/45 px-4 py-4">
+      <div className="glass-card w-full max-w-xl rounded-2xl p-5 max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-[#17355f]">タスク編集</h3>
           <button
