@@ -33,10 +33,11 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          const [{ ensureAdminUser }, { prisma }, { getRoleByUserId }] = await Promise.all([
+          const [{ ensureAdminUser }, { prisma }, { getRoleByUserId }, { ensurePersonalWorkspace }] = await Promise.all([
             import("@/lib/admin-user"),
             import("@/lib/prisma"),
             import("@/lib/user-role"),
+            import("@/lib/workspace"),
           ]);
 
           try {
@@ -58,6 +59,7 @@ export const authOptions: NextAuthOptions = {
           }
 
           const role = await getRoleByUserId(user.id, user.email);
+          await ensurePersonalWorkspace(user.id, user.displayName ?? user.email);
 
           return {
             id: user.id,

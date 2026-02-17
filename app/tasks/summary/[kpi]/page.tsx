@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { formatDate, toDateInputValue, toTimeInputValue, type Todo } from "@/app/_components/todos/model";
 
@@ -25,23 +25,29 @@ function toJstEndIso(ymd: string) {
   return new Date(`${ymd}T23:59:59.999+09:00`).toISOString();
 }
 
-function getKpiFetchUrl(key: KpiKey) {
-  if (key === "total") return "/api/todos";
-  if (key === "pending") return "/api/todos?completed=false";
-  if (key === "completed") return "/api/todos?completed=true";
+function withWorkspace(path: string, workspaceId: string | null) {
+  if (!workspaceId) return path;
+  const sep = path.includes("?") ? "&" : "?";
+  return `${path}${sep}ws=${encodeURIComponent(workspaceId)}`;
+}
+
+function getKpiFetchUrl(key: KpiKey, workspaceId: string | null) {
+  if (key === "total") return withWorkspace("/api/todos", workspaceId);
+  if (key === "pending") return withWorkspace("/api/todos?completed=false", workspaceId);
+  if (key === "completed") return withWorkspace("/api/todos?completed=true", workspaceId);
   if (key === "dueSoon") {
     const params = new URLSearchParams({
       completed: "false",
       dueFrom: toJstStartIso(getTokyoYmdOffset(0)),
       dueTo: toJstEndIso(getTokyoYmdOffset(7)),
     });
-    return `/api/todos?${params.toString()}`;
+    return withWorkspace(`/api/todos?${params.toString()}`, workspaceId);
   }
   const params = new URLSearchParams({
     completed: "false",
     dueTo: toJstEndIso(getTokyoYmdOffset(-1)),
   });
-  return `/api/todos?${params.toString()}`;
+  return withWorkspace(`/api/todos?${params.toString()}`, workspaceId);
 }
 
 function getTitle(key: KpiKey) {
@@ -54,6 +60,8 @@ function getTitle(key: KpiKey) {
 
 export default function KpiSummaryPage() {
   const params = useParams<{ kpi: string }>();
+  const searchParams = useSearchParams();
+  const workspaceId = searchParams.get("ws");
   const kpi = params?.kpi as KpiKey;
   const valid = ["total", "pending", "completed", "dueSoon", "overdue"].includes(kpi);
 
@@ -66,7 +74,7 @@ export default function KpiSummaryPage() {
   useEffect(() => {
     if (!valid) {
       setLoading(false);
-      setError("不正なKPIが指定されました。");
+      setError("正しいKPIが指定されていません。");
       return;
     }
     let cancelled = false;
@@ -74,7 +82,7 @@ export default function KpiSummaryPage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(getKpiFetchUrl(kpi), { cache: "no-store" });
+        const res = await fetch(getKpiFetchUrl(kpi, workspaceId), { cache: "no-store" });
         if (!res.ok) {
           const body = (await res.json()) as { message?: string };
           throw new Error(body.message ?? "一覧の取得に失敗しました。");
@@ -91,7 +99,9 @@ export default function KpiSummaryPage() {
     return () => {
       cancelled = true;
     };
-  }, [kpi, valid]);
+  }, [kpi, valid, workspaceId]);
+
+  const backHref = workspaceId ? `/?ws=${encodeURIComponent(workspaceId)}` : "/";
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-6 min-[768px]:px-8 min-[1280px]:py-8">
@@ -100,7 +110,7 @@ export default function KpiSummaryPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5b7ea5]">KPI Detail</p>
           <h1 className="text-2xl font-bold text-[#14355d]">{title}</h1>
         </div>
-        <Link href="/" className="rounded-lg border border-[#cad9ea] bg-white px-3 py-1.5 text-xs font-semibold text-[#2f5889]">
+        <Link href={backHref} className="rounded-lg border border-[#cad9ea] bg-white px-3 py-1.5 text-xs font-semibold text-[#2f5889]">
           ホームへ戻る
         </Link>
       </section>

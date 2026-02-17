@@ -2,6 +2,7 @@ import { getAuthenticatedUserId } from "@/lib/auth-guard";
 import { errorJson, getRequestId, okJson } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
 import { ensureTodoDeletedAtColumn } from "@/lib/todo-soft-delete";
+import { resolveWorkspaceForUser } from "@/lib/workspace";
 
 function parseId(id: string): number | null {
   const parsed = Number(id);
@@ -37,11 +38,20 @@ export async function GET(
 
   try {
     await ensureTodoDeletedAtColumn();
+    const workspace = await resolveWorkspaceForUser(userId, new URL(request.url).searchParams.get("ws"));
+    if (!workspace) {
+      return errorJson({
+        status: 403,
+        code: "WORKSPACE_FORBIDDEN",
+        message: "Forbidden workspace.",
+        requestId,
+      });
+    }
     const existing = await prisma.$queryRaw<Array<{ id: number }>>`
       SELECT "id"
       FROM "Todo"
       WHERE "id" = ${todoId}
-        AND "userId" = ${userId}
+        AND "workspaceId" = ${workspace.workspaceId}
         AND "deletedAt" IS NULL
       LIMIT 1
     `;
@@ -55,7 +65,7 @@ export async function GET(
     }
 
     const histories = await prisma.todoEditHistory.findMany({
-      where: { todoId, userId },
+      where: { todoId },
       orderBy: { editedAt: "desc" },
       take: 100,
       select: { id: true, editedAt: true },

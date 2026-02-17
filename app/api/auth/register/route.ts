@@ -1,6 +1,7 @@
 ﻿import { errorJson, getRequestId, okJson } from "@/lib/api-response";
 import { createPasswordHash } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { ensurePersonalWorkspace } from "@/lib/workspace";
 
 type RegisterInput = {
   email?: unknown;
@@ -74,6 +75,8 @@ export async function POST(request: Request) {
         createdAt: true,
       },
     });
+
+    await ensurePersonalWorkspace(user.id, user.displayName ?? user.email);
 
     return okJson(user, { status: 201, requestId });
   } catch (error) {

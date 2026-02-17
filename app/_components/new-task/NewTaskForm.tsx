@@ -23,6 +23,7 @@ type NewTaskFormProps = {
   assignee: TodoAssigneeInput;
   categoryOptions: string[];
   categoryLabelMap: Record<string, string>;
+  backHref: string;
   saving: boolean;
   error: string | null;
   onTitleChange: (value: string) => void;
@@ -51,6 +52,7 @@ export function NewTaskForm({
   assignee,
   categoryOptions,
   categoryLabelMap,
+  backHref,
   saving,
   error,
   onTitleChange,
@@ -81,7 +83,7 @@ export function NewTaskForm({
               カテゴリ管理
             </Link>
             <Link
-              href="/"
+              href={backHref}
               className="rounded-lg border border-[#c6d8ee] bg-[#edf5ff] px-3 py-1 text-xs font-semibold text-[#134b99] hover:brightness-95"
             >
               戻る
@@ -248,7 +250,7 @@ export function NewTaskForm({
 
           <div className="flex justify-end gap-2 pt-2">
             <Link
-              href="/"
+              href={backHref}
               className="rounded-xl border border-[#cfdbeb] px-4 py-2 text-sm text-[#47658a] hover:bg-[#edf5ff]"
             >
               キャンセル

@@ -15,10 +15,12 @@ import {
   ensureTodoStatusColumn,
   normalizeTodoStatusInput,
 } from "@/lib/todo-status";
+import { resolveWorkspaceForUser } from "@/lib/workspace";
 import { TodoPriority } from "@/src/generated/prisma";
 
 type CreateTodoInput = {
   title?: unknown;
+  workspaceId?: unknown;
   startAt?: unknown;
   dueAt?: unknown;
   memo?: unknown;
@@ -96,6 +98,17 @@ export async function GET(request: Request) {
     await ensureTodoDeletedAtColumn();
 
     const url = new URL(request.url);
+    const workspace = await resolveWorkspaceForUser(userId, url.searchParams.get("ws"));
+    if (!workspace) {
+      return errorJson({
+        status: 403,
+        code: "WORKSPACE_FORBIDDEN",
+        message: "Forbidden workspace.",
+        requestId,
+      });
+    }
+    const workspaceId = workspace.workspaceId;
+
     const q = url.searchParams.get("q")?.trim() ?? "";
     const categoryRaw = url.searchParams.get("category");
     const priorityRaw = url.searchParams.get("priority");
@@ -105,8 +118,8 @@ export async function GET(request: Request) {
     const dueToRaw = url.searchParams.get("dueTo");
     const completedRaw = url.searchParams.get("completed");
 
-    const whereClauses: string[] = ['"userId" = $1'];
-    const values: unknown[] = [userId];
+    const whereClauses: string[] = ['"workspaceId" = $1'];
+    const values: unknown[] = [workspaceId];
     const nextParam = (value: unknown) => {
       values.push(value);
       return `$${values.length}`;
@@ -174,7 +187,7 @@ export async function GET(request: Request) {
       const p = nextParam(userId);
       whereClauses.push(`"assigneeUserId" = ${p}`);
     } else if (assigneeRaw === "UNASSIGNED") {
-      whereClauses.push(`"assigneeUserId" IS NULL`);
+      whereClauses.push('"assigneeUserId" IS NULL');
     }
 
     if (completedRaw !== null) {
@@ -223,6 +236,7 @@ export async function GET(request: Request) {
       Array<{
         id: number;
         userId: string | null;
+        workspaceId: string | null;
         title: string;
         memo: string | null;
         category: string;
@@ -278,7 +292,19 @@ export async function POST(request: Request) {
     await ensureTodoStartAtColumn();
     await ensureTodoDeletedAtColumn();
 
+    const url = new URL(request.url);
     const body = (await request.json()) as CreateTodoInput;
+    const bodyWorkspaceId = typeof body.workspaceId === "string" ? body.workspaceId : null;
+    const workspace = await resolveWorkspaceForUser(userId, bodyWorkspaceId ?? url.searchParams.get("ws"));
+    if (!workspace) {
+      return errorJson({
+        status: 403,
+        code: "WORKSPACE_FORBIDDEN",
+        message: "Forbidden workspace.",
+        requestId,
+      });
+    }
+    const workspaceId = workspace.workspaceId;
 
     if (typeof body.title !== "string" || body.title.trim().length === 0) {
       return errorJson({
@@ -385,6 +411,7 @@ export async function POST(request: Request) {
       Array<{
         id: number;
         userId: string | null;
+        workspaceId: string | null;
         title: string;
         memo: string | null;
         category: string;
@@ -402,6 +429,7 @@ export async function POST(request: Request) {
     >`
       INSERT INTO "Todo" (
         "userId",
+        "workspaceId",
         "title",
         "memo",
         "category",
@@ -417,6 +445,7 @@ export async function POST(request: Request) {
       )
       VALUES (
         ${userId},
+        ${workspaceId},
         ${body.title.trim()},
         ${memo ?? null},
         ${category},

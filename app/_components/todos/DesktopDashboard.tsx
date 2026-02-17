@@ -68,6 +68,9 @@ type DesktopDashboardProps = {
   onClearSelected: () => void;
   sidebarCollapsed: boolean;
   onToggleSidebar: () => void;
+  workspaces: Array<{ id: string; name: string; isPersonal: boolean; role: "OWNER" | "MEMBER" }>;
+  activeWorkspaceId: string | null;
+  onWorkspaceChange: (workspaceId: string) => void;
 };
 
 const T = {
@@ -76,6 +79,7 @@ const T = {
   categories: "\u30ab\u30c6\u30b4\u30ea\u7ba1\u7406",
   calendar: "\u30ab\u30ec\u30f3\u30c0\u30fc",
   history: "\u5c65\u6b74",
+  workspaces: "\u5171\u6709\u7ba1\u7406",
   admin: "\u7ba1\u7406\u8005",
   logout: "\u30ed\u30b0\u30a2\u30a6\u30c8",
   title: "Todo\u30b3\u30f3\u30c8\u30ed\u30fc\u30eb\u30bb\u30f3\u30bf\u30fc",
@@ -175,6 +179,9 @@ export function DesktopDashboard(props: DesktopDashboardProps) {
     onClearSelected,
     sidebarCollapsed,
     onToggleSidebar,
+    workspaces,
+    activeWorkspaceId,
+    onWorkspaceChange,
   } = props;
 
   const [filterPinnedOpen, setFilterPinnedOpen] = useState(false);
@@ -185,6 +192,12 @@ export function DesktopDashboard(props: DesktopDashboardProps) {
   const filterOpen = filterPinnedOpen || filterHoverOpen;
   const pendingAllSelected = pendingTodos.length > 0 && pendingTodos.every((todo) => selectedIds.has(todo.id));
   const completedAllSelected = completedTodos.length > 0 && completedTodos.every((todo) => selectedIds.has(todo.id));
+  const createTaskHref = activeWorkspaceId
+    ? `/tasks/new?ws=${encodeURIComponent(activeWorkspaceId)}`
+    : "/tasks/new";
+  const workspaceManageHref = activeWorkspaceId
+    ? `/workspaces?ws=${encodeURIComponent(activeWorkspaceId)}`
+    : "/workspaces";
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1280px)");
@@ -230,10 +243,27 @@ export function DesktopDashboard(props: DesktopDashboardProps) {
           {!sidebarCollapsed && <p className="text-sm font-semibold tracking-[0.1em] text-[#d5ebff]">{T.menu}</p>}
         </div>
         <div className="space-y-2 p-3">
+          {!sidebarCollapsed && (
+            <div className="mb-2 rounded-lg border border-white/20 bg-white/5 p-2">
+              <p className="mb-1 text-[11px] text-[#b7d5f4]">Workspace</p>
+              <select
+                value={activeWorkspaceId ?? ""}
+                onChange={(event) => onWorkspaceChange(event.target.value)}
+                className="w-full rounded-md border border-white/20 bg-[#113b63] px-2 py-1.5 text-xs text-white"
+              >
+                {workspaces.map((workspace) => (
+                  <option key={workspace.id} value={workspace.id}>
+                    {workspace.isPersonal ? "個人" : "共有"}: {workspace.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <Link href="/" className="block rounded-lg bg-white/12 px-3 py-2 text-sm text-[#eaf5ff]">{T.dashboard}</Link>
           <Link href="/categories" className="block rounded-lg border border-white/20 px-3 py-2 text-sm text-[#d6e8fa]">{T.categories}</Link>
           <Link href="/calendar" className="block rounded-lg border border-white/20 px-3 py-2 text-sm text-[#d6e8fa]">{T.calendar}</Link>
           <Link href="/history" className="block rounded-lg border border-white/20 px-3 py-2 text-sm text-[#d6e8fa]">{T.history}</Link>
+          <Link href={workspaceManageHref} className="block rounded-lg border border-white/20 px-3 py-2 text-sm text-[#d6e8fa]">{T.workspaces}</Link>
           {isAdmin && <Link href="/admin" className="block rounded-lg border border-white/20 px-3 py-2 text-sm text-[#d6e8fa]">{T.admin}</Link>}
         </div>
         <div className="absolute bottom-3 left-3 right-3">
@@ -449,7 +479,7 @@ export function DesktopDashboard(props: DesktopDashboardProps) {
         </main>
 
         {notificationOpen && <div className="fixed right-6 top-20 z-40 w-[420px]"><NotificationPanel notifications={notifications} onMarkRead={onMarkRead} onMarkAllRead={onMarkAllRead} /></div>}
-        <Link href="/tasks/new" className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 rounded-full border border-[#9ac0e5] bg-[linear-gradient(135deg,#1d5da8_0%,#256ab8_100%)] px-4 py-2 text-sm font-semibold text-white shadow-[0_16px_36px_-24px_#12355d] transition-transform duration-200 hover:-translate-y-0.5" aria-label={T.create}><span className="text-lg leading-none">+</span>{T.create}</Link>
+        <Link href={createTaskHref} className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 rounded-full border border-[#9ac0e5] bg-[linear-gradient(135deg,#1d5da8_0%,#256ab8_100%)] px-4 py-2 text-sm font-semibold text-white shadow-[0_16px_36px_-24px_#12355d] transition-transform duration-200 hover:-translate-y-0.5" aria-label={T.create}><span className="text-lg leading-none">+</span>{T.create}</Link>
       </div>
     </div>
   );

@@ -38,6 +38,11 @@ enum UserRole {
   USER
 }
 
+enum WorkspaceRole {
+  OWNER
+  MEMBER
+}
+
 model User {
   id             String            @id @default(cuid())
   email          String            @unique
@@ -53,6 +58,9 @@ model User {
   accounts       Account[]
   sessions       Session[]
   authenticators Authenticator[]
+  ownedWorkspaces Workspace[] @relation("WorkspaceOwner")
+  workspaceMembers WorkspaceMember[]
+  workspaceInvites WorkspaceInvite[] @relation("WorkspaceInviter")
 }
 
 model UserCategory {
@@ -122,6 +130,7 @@ model Authenticator {
 model Todo {
   id          Int          @id @default(autoincrement())
   userId      String?
+  workspaceId String?
   assigneeUserId String?
   deletedAt   DateTime?
   title       String
@@ -136,12 +145,57 @@ model Todo {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  workspace   Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   notifications Notification[]
   editHistories TodoEditHistory[]
 
   @@index([userId, completed, dueAt, completedAt, category, priority])
   @@index([userId, assigneeUserId, completed, dueAt])
   @@index([userId, deletedAt, completed, dueAt])
+  @@index([workspaceId, deletedAt, completed, dueAt])
+}
+
+model Workspace {
+  id          String            @id
+  name        String
+  ownerUserId String
+  isPersonal  Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  owner       User              @relation("WorkspaceOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  members     WorkspaceMember[]
+  invites     WorkspaceInvite[]
+  todos       Todo[]
+
+  @@index([ownerUserId])
+}
+
+model WorkspaceMember {
+  workspaceId String
+  userId      String
+  role        WorkspaceRole
+  joinedAt    DateTime    @default(now())
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+  @@index([userId])
+}
+
+model WorkspaceInvite {
+  id              String    @id
+  workspaceId     String
+  email           String
+  tokenHash       String    @unique
+  invitedByUserId String
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy       User      @relation("WorkspaceInviter", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, email])
 }
 
 model TodoEditHistory {

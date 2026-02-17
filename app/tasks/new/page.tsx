@@ -1,7 +1,7 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { NewTaskForm } from "@/app/_components/new-task/NewTaskForm";
 import {
   toJstDateTimeIso,
@@ -18,6 +18,8 @@ type CategoriesResponse = {
 
 export default function NewTaskPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const workspaceId = searchParams.get("ws");
   const [title, setTitle] = useState("");
   const [startDate, setStartDate] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -89,6 +91,7 @@ export default function NewTaskPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          workspaceId,
           title: title.trim(),
           startAt: startDate ? toJstDateTimeIso(startDate, startTime || undefined) : undefined,
           dueAt: toJstDateTimeIso(dueDate, dueTime || undefined),
@@ -105,7 +108,7 @@ export default function NewTaskPage() {
         throw new Error(body.message ?? "タスク作成に失敗しました。");
       }
 
-      router.push("/");
+      router.push(workspaceId ? `/?ws=${encodeURIComponent(workspaceId)}` : "/");
       router.refresh();
     } catch (e) {
       const message = e instanceof Error ? e.message : "タスク作成に失敗しました。";
@@ -128,6 +131,7 @@ export default function NewTaskPage() {
       assignee={assignee}
       categoryOptions={categoryOptions}
       categoryLabelMap={categoryLabelMap}
+      backHref={workspaceId ? `/?ws=${encodeURIComponent(workspaceId)}` : "/"}
       saving={saving}
       error={error}
       onTitleChange={setTitle}

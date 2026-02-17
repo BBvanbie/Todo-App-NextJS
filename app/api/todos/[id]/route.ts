@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { ensureTodoAssigneeColumn, parseAssigneeInput } from "@/lib/todo-assignee";
 import { ensureTodoStartAtColumn } from "@/lib/todo-start-at";
 import { ensureTodoDeletedAtColumn } from "@/lib/todo-soft-delete";
+import { resolveWorkspaceForUser } from "@/lib/workspace";
 import {
   completedFromStatus,
   ensureTodoStatusColumn,
@@ -153,6 +154,16 @@ export async function PATCH(
     await ensureTodoAssigneeColumn();
     await ensureTodoStartAtColumn();
     await ensureTodoDeletedAtColumn();
+    const workspace = await resolveWorkspaceForUser(userId, new URL(request.url).searchParams.get("ws"));
+    if (!workspace) {
+      return errorJson({
+        status: 403,
+        code: "WORKSPACE_FORBIDDEN",
+        message: "Forbidden workspace.",
+        requestId,
+      });
+    }
+    const workspaceId = workspace.workspaceId;
 
     const body = (await request.json()) as UpdateTodoInput;
     const shouldLogEdit =
@@ -342,7 +353,7 @@ export async function PATCH(
       SELECT *
       FROM "Todo"
       WHERE "id" = ${todoId}
-        AND "userId" = ${userId}
+        AND "workspaceId" = ${workspaceId}
         AND "deletedAt" IS NULL
       LIMIT 1
     `;
@@ -413,8 +424,8 @@ export async function PATCH(
 
     values.push(todoId);
     const idIndex = values.length;
-    values.push(userId);
-    const userIdIndex = values.length;
+    values.push(workspaceId);
+    const workspaceIdIndex = values.length;
 
     const updatedCount = await prisma.$executeRawUnsafe(
       `
@@ -422,7 +433,7 @@ export async function PATCH(
       SET ${setClauses.join(", ")},
           "updatedAt" = NOW()
       WHERE "id" = $${idIndex}
-        AND "userId" = $${userIdIndex}
+        AND "workspaceId" = $${workspaceIdIndex}
         AND "deletedAt" IS NULL
       `,
       ...values,
@@ -448,7 +459,7 @@ export async function PATCH(
       SELECT *
       FROM "Todo"
       WHERE "id" = ${todoId}
-        AND "userId" = ${userId}
+        AND "workspaceId" = ${workspaceId}
         AND "deletedAt" IS NULL
       LIMIT 1
     `;
@@ -526,12 +537,21 @@ export async function DELETE(
 
   try {
     await ensureTodoDeletedAtColumn();
+    const workspace = await resolveWorkspaceForUser(userId, new URL(request.url).searchParams.get("ws"));
+    if (!workspace) {
+      return errorJson({
+        status: 403,
+        code: "WORKSPACE_FORBIDDEN",
+        message: "Forbidden workspace.",
+        requestId,
+      });
+    }
     const deletedRows = await prisma.$queryRaw<Array<TodoRow>>`
       UPDATE "Todo"
       SET "deletedAt" = NOW(),
           "updatedAt" = NOW()
       WHERE "id" = ${todoId}
-        AND "userId" = ${userId}
+        AND "workspaceId" = ${workspace.workspaceId}
         AND "deletedAt" IS NULL
       RETURNING *
     `;

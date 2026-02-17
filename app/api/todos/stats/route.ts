@@ -2,6 +2,7 @@ import { getAuthenticatedUserId } from "@/lib/auth-guard";
 import { errorJson, getRequestId, okJson } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
 import { ensureTodoDeletedAtColumn } from "@/lib/todo-soft-delete";
+import { resolveWorkspaceForUser } from "@/lib/workspace";
 
 type StatsRow = {
   total: bigint;
@@ -25,6 +26,16 @@ export async function GET(request: Request) {
 
   try {
     await ensureTodoDeletedAtColumn();
+    const url = new URL(request.url);
+    const workspace = await resolveWorkspaceForUser(userId, url.searchParams.get("ws"));
+    if (!workspace) {
+      return errorJson({
+        status: 403,
+        code: "WORKSPACE_FORBIDDEN",
+        message: "Forbidden workspace.",
+        requestId,
+      });
+    }
     const rows = await prisma.$queryRaw<StatsRow[]>`
       SELECT
         COUNT(*)::bigint AS "total",
@@ -40,7 +51,7 @@ export async function GET(request: Request) {
             AND ("dueAt" AT TIME ZONE 'Asia/Tokyo')::date < (NOW() AT TIME ZONE 'Asia/Tokyo')::date
         )::bigint AS "overdue"
       FROM "Todo"
-      WHERE "userId" = ${userId}
+      WHERE "workspaceId" = ${workspace.workspaceId}
         AND "deletedAt" IS NULL
     `;
     const row = rows[0];

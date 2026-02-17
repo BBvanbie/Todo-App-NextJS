@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { ensureTodoAssigneeColumn, parseAssigneeInput } from "@/lib/todo-assignee";
 import { ensureTodoStartAtColumn } from "@/lib/todo-start-at";
 import { ensureTodoDeletedAtColumn } from "@/lib/todo-soft-delete";
+import { resolveWorkspaceForUser } from "@/lib/workspace";
 import {
   completedFromStatus,
   ensureTodoStatusColumn,
@@ -109,6 +110,15 @@ export async function POST(
     await ensureTodoAssigneeColumn();
     await ensureTodoStartAtColumn();
     await ensureTodoDeletedAtColumn();
+    const workspace = await resolveWorkspaceForUser(userId, new URL(request.url).searchParams.get("ws"));
+    if (!workspace) {
+      return errorJson({
+        status: 403,
+        code: "WORKSPACE_FORBIDDEN",
+        message: "Forbidden workspace.",
+        requestId,
+      });
+    }
 
     const body = (await request.json()) as DuplicateTodoInput;
     const dueAt = parseDateTime(body.dueAt);
@@ -152,7 +162,7 @@ export async function POST(
       SELECT *
       FROM "Todo"
       WHERE "id" = ${todoId}
-        AND "userId" = ${userId}
+        AND "workspaceId" = ${workspace.workspaceId}
         AND "deletedAt" IS NULL
       LIMIT 1
     `;
@@ -255,6 +265,7 @@ export async function POST(
       Array<{
         id: number;
         userId: string | null;
+        workspaceId: string | null;
         title: string;
         memo: string | null;
         category: string;
@@ -272,6 +283,7 @@ export async function POST(
     >`
       INSERT INTO "Todo" (
         "userId",
+        "workspaceId",
         "title",
         "memo",
         "category",
@@ -287,6 +299,7 @@ export async function POST(
       )
       VALUES (
         ${userId},
+        ${workspace.workspaceId},
         ${title ?? existing.title},
         ${memo === undefined ? existing.memo : memo},
         ${category ?? existing.category},

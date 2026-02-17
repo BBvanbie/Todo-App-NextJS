@@ -43,6 +43,7 @@ type TodoStats = {
 };
 
 type KpiKey = "total" | "pending" | "completed" | "dueSoon" | "overdue";
+type WorkspaceOption = { id: string; name: string; isPersonal: boolean; role: "OWNER" | "MEMBER" };
 
 async function getApiErrorMessage(response: Response, fallback: string) {
   try {
@@ -76,6 +77,12 @@ function toJstEndIso(ymd: string) {
   return new Date(`${ymd}T23:59:59.999+09:00`).toISOString();
 }
 
+function withWorkspace(path: string, workspaceId: string | null) {
+  if (!workspaceId) return path;
+  const sep = path.includes("?") ? "&" : "?";
+  return `${path}${sep}ws=${encodeURIComponent(workspaceId)}`;
+}
+
 export default function Home() {
   const router = useRouter();
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -98,6 +105,8 @@ export default function Home() {
     OTHER: "その他",
   });
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -231,7 +240,7 @@ export default function Home() {
     let cancelled = false;
     const fetchCalendarTodos = async () => {
       try {
-        const res = await fetch("/api/todos?completed=false", { cache: "no-store" });
+        const res = await fetch(withWorkspace("/api/todos?completed=false", activeWorkspaceId), { cache: "no-store" });
         if (!res.ok) return;
         const body = (await res.json()) as Todo[];
         if (!cancelled) setCalendarTodos(body);
@@ -243,13 +252,13 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [reloadSeed]);
+  }, [reloadSeed, activeWorkspaceId]);
 
   useEffect(() => {
     let cancelled = false;
     const fetchStats = async () => {
       try {
-        const res = await fetch("/api/todos/stats", { cache: "no-store" });
+        const res = await fetch(withWorkspace("/api/todos/stats", activeWorkspaceId), { cache: "no-store" });
         if (!res.ok) return;
         const body = (await res.json()) as TodoStats;
         if (!cancelled) setStats(body);
@@ -261,7 +270,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [reloadSeed]);
+  }, [reloadSeed, activeWorkspaceId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -287,7 +296,8 @@ export default function Home() {
           params.set("dueTo", toJstEndIso(getTokyoYmdOffset(-1)));
         }
         const url = params.size > 0 ? `/api/todos?${params.toString()}` : "/api/todos";
-        const res = await fetch(url, { cache: "no-store" });
+        const scopedUrl = withWorkspace(url, activeWorkspaceId);
+        const res = await fetch(scopedUrl, { cache: "no-store" });
         if (!res.ok) {
           throw new Error(await getApiErrorMessage(res, "データ取得に失敗しました。"));
         }
@@ -306,7 +316,7 @@ export default function Home() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [search, filterCategory, filterPriority, filterAssignee, filterStatus, filterDue, reloadSeed]);
+  }, [search, filterCategory, filterPriority, filterAssignee, filterStatus, filterDue, reloadSeed, activeWorkspaceId]);
 
   useEffect(() => {
     const onScroll = () => {
@@ -319,6 +329,39 @@ export default function Home() {
       window.removeEventListener("scroll", onScroll);
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchWorkspaces = async () => {
+      try {
+        const res = await fetch("/api/workspaces", { cache: "no-store" });
+        if (!res.ok) return;
+        const body = (await res.json()) as WorkspaceOption[];
+        if (cancelled || !Array.isArray(body) || body.length === 0) return;
+        setWorkspaces(body);
+        const queryWs = new URLSearchParams(window.location.search).get("ws");
+        const fallback = body[0].id;
+        const selected = queryWs && body.some((w) => w.id === queryWs) ? queryWs : fallback;
+        setActiveWorkspaceId(selected);
+      } catch {
+        // ignore workspace bootstrap errors
+      }
+    };
+    void fetchWorkspaces();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeWorkspaceId) return;
+    const search = new URLSearchParams(window.location.search);
+    if (search.get("ws") !== activeWorkspaceId) {
+      search.set("ws", activeWorkspaceId);
+      router.replace(`/?${search.toString()}`);
+    }
+    setReloadSeed((current) => current + 1);
+  }, [activeWorkspaceId, router]);
 
   useEffect(() => {
     const todoIds = new Set(todos.map((todo) => todo.id));
@@ -404,7 +447,7 @@ export default function Home() {
     setHistoryLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/todos/${todo.id}/edits`, { cache: "no-store" });
+      const res = await fetch(withWorkspace(`/api/todos/${todo.id}/edits`, activeWorkspaceId), { cache: "no-store" });
       if (!res.ok) {
         throw new Error(await getApiErrorMessage(res, "編集履歴の取得に失敗しました。"));
       }
@@ -443,7 +486,7 @@ export default function Home() {
     if (nextCompleted) openToast(todo);
 
     try {
-      const res = await fetch(`/api/todos/${todo.id}`, {
+      const res = await fetch(withWorkspace(`/api/todos/${todo.id}`, activeWorkspaceId), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ completed: nextCompleted }),
@@ -497,7 +540,7 @@ export default function Home() {
 
     const results = await Promise.allSettled(
       targetIds.map(async (id) => {
-        const res = await fetch(`/api/todos/${id}`, {
+        const res = await fetch(withWorkspace(`/api/todos/${id}`, activeWorkspaceId), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ completed }),
@@ -537,7 +580,7 @@ export default function Home() {
 
     const results = await Promise.allSettled(
       targetIds.map(async (id) => {
-        const res = await fetch(`/api/todos/${id}`, { method: "DELETE" });
+        const res = await fetch(withWorkspace(`/api/todos/${id}`, activeWorkspaceId), { method: "DELETE" });
         if (!res.ok) throw new Error(await getApiErrorMessage(res, "削除に失敗しました。"));
       }),
     );
@@ -573,7 +616,7 @@ export default function Home() {
     setDeletePending(true);
     setTodos((list) => list.filter((item) => item.id !== deleteTarget.id));
     try {
-      const res = await fetch(`/api/todos/${deleteTarget.id}`, { method: "DELETE" });
+      const res = await fetch(withWorkspace(`/api/todos/${deleteTarget.id}`, activeWorkspaceId), { method: "DELETE" });
       if (!res.ok) throw new Error(await getApiErrorMessage(res, "削除に失敗しました。"));
       setDeleteTarget(null);
       refreshTodosAndStats();
@@ -657,7 +700,7 @@ export default function Home() {
     }
     setEditSaving(true);
     try {
-      const res = await fetch(`/api/todos/${editing.id}`, {
+      const res = await fetch(withWorkspace(`/api/todos/${editing.id}`, activeWorkspaceId), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -712,7 +755,7 @@ export default function Home() {
     }
     setDupSaving(true);
     try {
-      const res = await fetch(`/api/todos/${dupSource.id}/duplicate`, {
+      const res = await fetch(withWorkspace(`/api/todos/${dupSource.id}/duplicate`, activeWorkspaceId), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -738,27 +781,27 @@ export default function Home() {
   };
 
   const getKpiFetchUrl = (key: KpiKey) => {
-    if (key === "total") return "/api/todos";
-    if (key === "pending") return "/api/todos?completed=false";
-    if (key === "completed") return "/api/todos?completed=true";
+    if (key === "total") return withWorkspace("/api/todos", activeWorkspaceId);
+    if (key === "pending") return withWorkspace("/api/todos?completed=false", activeWorkspaceId);
+    if (key === "completed") return withWorkspace("/api/todos?completed=true", activeWorkspaceId);
     if (key === "dueSoon") {
       const params = new URLSearchParams({
         completed: "false",
         dueFrom: toJstStartIso(getTokyoYmdOffset(0)),
         dueTo: toJstEndIso(getTokyoYmdOffset(7)),
       });
-      return `/api/todos?${params.toString()}`;
+      return withWorkspace(`/api/todos?${params.toString()}`, activeWorkspaceId);
     }
     const params = new URLSearchParams({
       completed: "false",
       dueTo: toJstEndIso(getTokyoYmdOffset(-1)),
     });
-    return `/api/todos?${params.toString()}`;
+    return withWorkspace(`/api/todos?${params.toString()}`, activeWorkspaceId);
   };
 
   const openKpiView = async (key: KpiKey) => {
     if (window.innerWidth < 1280) {
-      router.push(`/tasks/summary/${key}`);
+      router.push(withWorkspace(`/tasks/summary/${key}`, activeWorkspaceId));
       return;
     }
 
@@ -851,6 +894,9 @@ export default function Home() {
         onClearSelected={clearSelectedTodos}
         sidebarCollapsed={desktopSidebarCollapsed}
         onToggleSidebar={() => setDesktopSidebarCollapsed((prev) => !prev)}
+        workspaces={workspaces}
+        activeWorkspaceId={activeWorkspaceId}
+        onWorkspaceChange={setActiveWorkspaceId}
       />
 
       <main className="relative z-10 mx-auto w-full max-w-6xl px-4 py-6 pb-28 min-[768px]:hidden">
@@ -877,6 +923,12 @@ export default function Home() {
             >
               カテゴリ
             </Link>
+            <Link
+              href={withWorkspace("/workspaces", activeWorkspaceId)}
+              className="rounded-lg border border-white/35 bg-white/10 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur sm:px-2.5 sm:py-1.5 sm:text-xs"
+            >
+              共有管理
+            </Link>
             {isAdmin && (
               <Link
                 href="/admin"
@@ -896,7 +948,7 @@ export default function Home() {
         </section>
 
         <section className="mt-2 sm:hidden">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <Link
               href="/calendar"
               className="rounded-lg border border-[#c8d9ec] bg-white px-2 py-2 text-center text-[12px] font-semibold text-[#214f84]"
@@ -908,6 +960,12 @@ export default function Home() {
               className="rounded-lg border border-[#c8d9ec] bg-white px-2 py-2 text-center text-[12px] font-semibold text-[#214f84]"
             >
               カテゴリ
+            </Link>
+            <Link
+              href={withWorkspace("/workspaces", activeWorkspaceId)}
+              className="rounded-lg border border-[#c8d9ec] bg-white px-2 py-2 text-center text-[12px] font-semibold text-[#214f84]"
+            >
+              共有管理
             </Link>
             <button
               type="button"
@@ -1123,7 +1181,7 @@ export default function Home() {
       </div>
 
       <Link
-        href="/tasks/new"
+        href={withWorkspace("/tasks/new", activeWorkspaceId)}
         className="fixed bottom-24 right-4 z-50 inline-flex h-12 min-w-12 items-center justify-center rounded-full border border-[#9ac0e5] bg-[linear-gradient(135deg,#1d5da8_0%,#256ab8_100%)] px-3 text-sm font-semibold text-white shadow-[0_16px_30px_-18px_#12355d] transition-transform duration-200 active:scale-95 min-[768px]:hidden"
         aria-label="新規作成"
       >
