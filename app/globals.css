@@ -26,6 +26,12 @@
   --font-mono: "Consolas", "Lucida Console", monospace;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
   min-height: 100vh;
   background:

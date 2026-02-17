@@ -67,8 +67,8 @@ export function DuplicateTodoModal({
   onSubmit,
 }: DuplicateTodoModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#0f1f35]/45 px-4 py-4">
-      <div className="glass-card w-full max-w-xl rounded-2xl p-5 max-h-[calc(100dvh-2rem)] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-x-hidden overflow-y-auto bg-[#0f1f35]/45 px-4 py-4">
+      <div className="glass-card w-[min(100%,calc(100vw-2rem))] max-w-xl rounded-2xl p-5 max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-[#17355f]">次回タスクを作成</h3>
           <button
@@ -80,7 +80,7 @@ export function DuplicateTodoModal({
           </button>
         </div>
         <p className="mb-3 text-xs text-muted">元タスク: {source.title}</p>
-        <form onSubmit={onSubmit} className="space-y-3">
+        <form onSubmit={onSubmit} className="space-y-3 overflow-x-hidden [&_input]:max-w-full [&_select]:max-w-full [&_textarea]:max-w-full">
           <label className="block text-sm text-muted" htmlFor="dupTitle">
             件名
           </label>
