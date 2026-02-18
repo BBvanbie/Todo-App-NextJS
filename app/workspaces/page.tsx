@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
@@ -19,14 +19,17 @@ type WorkspaceInvite = {
   createdAt: string;
 };
 
-type InviteCreateResponse = {
+type InviteActionResponse = {
   inviteId: string;
   email: string;
   inviteUrl: string;
   expiresAt: string;
   mailStatus: "sent" | "failed" | "skipped";
   mailError: string | null;
+  replacedInviteId?: string;
 };
+
+type InviteListFilter = "all" | "pending" | "accepted" | "revoked" | "expired";
 
 async function getApiErrorMessage(response: Response, fallback: string) {
   try {
@@ -42,6 +45,36 @@ function formatDateTime(value: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleString("ja-JP");
+}
+
+function resolveInviteStatus(invite: WorkspaceInvite): Exclude<InviteListFilter, "all"> {
+  if (invite.acceptedAt) return "accepted";
+  if (invite.revokedAt) return "revoked";
+  const expiresAt = new Date(invite.expiresAt);
+  if (!Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() <= Date.now()) return "expired";
+  return "pending";
+}
+
+function InviteStatusBadge({ status }: { status: Exclude<InviteListFilter, "all"> }) {
+  const style =
+    status === "accepted"
+      ? "bg-[#e8f8f0] text-[#1f7a4d]"
+      : status === "revoked"
+        ? "bg-[#fff1f3] text-[#9e2740]"
+        : status === "expired"
+          ? "bg-[#fff8e8] text-[#9a6b16]"
+          : "bg-[#edf6ff] text-[#21588f]";
+
+  const label =
+    status === "accepted"
+      ? "承認済み"
+      : status === "revoked"
+        ? "取り消し済み"
+        : status === "expired"
+          ? "期限切れ"
+          : "保留中";
+
+  return <span className={`rounded-full px-2 py-0.5 font-semibold ${style}`}>{label}</span>;
 }
 
 function WorkspaceManagePageContent() {
@@ -62,7 +95,11 @@ function WorkspaceManagePageContent() {
   const [savingCreate, setSavingCreate] = useState(false);
   const [savingRename, setSavingRename] = useState(false);
   const [savingInvite, setSavingInvite] = useState(false);
-  const [lastInviteResult, setLastInviteResult] = useState<InviteCreateResponse | null>(null);
+  const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
+
+  const [inviteSearch, setInviteSearch] = useState("");
+  const [inviteFilter, setInviteFilter] = useState<InviteListFilter>("all");
+  const [lastInviteResult, setLastInviteResult] = useState<InviteActionResponse | null>(null);
 
   const activeWorkspace = useMemo(
     () => workspaces.find((workspace) => workspace.id === activeWorkspaceId) ?? null,
@@ -70,6 +107,19 @@ function WorkspaceManagePageContent() {
   );
   const isOwner = activeWorkspace?.role === "OWNER";
   const homeHref = activeWorkspaceId ? `/?ws=${encodeURIComponent(activeWorkspaceId)}` : "/";
+
+  const filteredInvites = useMemo(() => {
+    const q = inviteSearch.trim().toLowerCase();
+    return invites.filter((invite) => {
+      const status = resolveInviteStatus(invite);
+      if (inviteFilter !== "all" && status !== inviteFilter) return false;
+      if (!q) return true;
+      const haystack = [invite.email, invite.inviterDisplayName ?? "", invite.inviterEmail ?? ""]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [invites, inviteFilter, inviteSearch]);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,7 +138,8 @@ function WorkspaceManagePageContent() {
           (initialWs && data.some((w) => w.id === initialWs) ? initialWs : data[0]?.id) ?? null;
         setActiveWorkspaceId(selected);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "ワークスペース一覧の取得に失敗しました。");
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : "ワークスペース一覧の取得に失敗しました。");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -107,8 +158,11 @@ function WorkspaceManagePageContent() {
     if (!activeWorkspaceId) {
       setMembers([]);
       setInvites([]);
+      setInviteSearch("");
+      setInviteFilter("all");
       return;
     }
+
     let cancelled = false;
     const fetchDetails = async () => {
       setDetailLoading(true);
@@ -130,7 +184,8 @@ function WorkspaceManagePageContent() {
         setMembers(memberBody);
         setInvites(inviteBody);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "ワークスペース詳細の取得に失敗しました。");
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : "ワークスペース詳細の取得に失敗しました。");
       } finally {
         if (!cancelled) setDetailLoading(false);
       }
@@ -209,7 +264,7 @@ function WorkspaceManagePageContent() {
         body: JSON.stringify({ email: inviteEmail.trim().toLowerCase() }),
       });
       if (!res.ok) throw new Error(await getApiErrorMessage(res, "招待送信に失敗しました。"));
-      const body = (await res.json()) as InviteCreateResponse;
+      const body = (await res.json()) as InviteActionResponse;
       setInviteEmail("");
       setLastInviteResult(body);
       await refreshInvites();
@@ -234,6 +289,25 @@ function WorkspaceManagePageContent() {
     }
   };
 
+  const handleResendInvite = async (inviteId: string) => {
+    if (!activeWorkspaceId) return;
+    setError(null);
+    setResendingInviteId(inviteId);
+    try {
+      const res = await fetch(`/api/workspaces/${activeWorkspaceId}/invites/${inviteId}/resend`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error(await getApiErrorMessage(res, "招待再送に失敗しました。"));
+      const body = (await res.json()) as InviteActionResponse;
+      setLastInviteResult(body);
+      await refreshInvites();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "招待再送に失敗しました。");
+    } finally {
+      setResendingInviteId(null);
+    }
+  };
+
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-6 min-[768px]:px-8 min-[1280px]:py-8">
       <section className="mb-5 flex flex-wrap items-center justify-between gap-2">
@@ -241,7 +315,10 @@ function WorkspaceManagePageContent() {
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#5b7ea5]">Workspace</p>
           <h1 className="text-2xl font-bold text-[#14355d]">Workspace管理</h1>
         </div>
-        <Link href={homeHref} className="rounded-lg border border-[#cad9ea] bg-white px-3 py-1.5 text-xs font-semibold text-[#2f5889]">
+        <Link
+          href={homeHref}
+          className="rounded-lg border border-[#cad9ea] bg-white px-3 py-1.5 text-xs font-semibold text-[#2f5889]"
+        >
           ホームへ戻る
         </Link>
       </section>
@@ -273,7 +350,7 @@ function WorkspaceManagePageContent() {
             </div>
 
             <form onSubmit={handleCreateWorkspace} className="mt-4 border-t border-[#e6eef8] pt-4">
-              <p className="text-xs font-semibold text-[#52739a]">新規共有Workspace作成</p>
+              <p className="text-xs font-semibold text-[#52739a]">新規Workspace作成</p>
               <input
                 value={newWorkspaceName}
                 onChange={(event) => setNewWorkspaceName(event.target.value)}
@@ -317,7 +394,7 @@ function WorkspaceManagePageContent() {
                     disabled={savingRename || !renameValue.trim()}
                     className="rounded-lg border border-[#9ac0e5] bg-[#edf6ff] px-3 py-2 text-sm font-semibold text-[#1f4f86] disabled:opacity-60"
                   >
-                    {savingRename ? "保存中..." : "名称変更"}
+                    {savingRename ? "変更中..." : "名前を変更"}
                   </button>
                 </form>
 
@@ -340,10 +417,18 @@ function WorkspaceManagePageContent() {
                         {savingInvite ? "送信中..." : "招待送信"}
                       </button>
                     </div>
+
                     {lastInviteResult && (
                       <div className="mt-2 rounded-lg border border-[#d8e6f5] bg-white p-2 text-xs text-[#365a83]">
                         <p>送信ステータス: {lastInviteResult.mailStatus}</p>
-                        {lastInviteResult.mailError && <p className="mt-1 text-[#9b2b3d]">{lastInviteResult.mailError}</p>}
+                        {lastInviteResult.mailError && (
+                          <p className="mt-1 text-[#9b2b3d]">{lastInviteResult.mailError}</p>
+                        )}
+                        <p className="mt-1">宛先: {lastInviteResult.email}</p>
+                        <p className="mt-1">有効期限: {formatDateTime(lastInviteResult.expiresAt)}</p>
+                        {lastInviteResult.replacedInviteId && (
+                          <p className="mt-1 text-[#5d7898]">再送前招待ID: {lastInviteResult.replacedInviteId}</p>
+                        )}
                         <p className="mt-1 break-all">招待リンク: {lastInviteResult.inviteUrl}</p>
                       </div>
                     )}
@@ -372,32 +457,66 @@ function WorkspaceManagePageContent() {
                   </section>
 
                   <section>
-                    <h3 className="text-sm font-semibold text-[#17355f]">招待履歴</h3>
+                    <h3 className="text-sm font-semibold text-[#17355f]">招待一覧</h3>
+
+                    <div className="mt-2 grid gap-2 min-[768px]:grid-cols-[1fr_auto]">
+                      <input
+                        type="text"
+                        value={inviteSearch}
+                        onChange={(event) => setInviteSearch(event.target.value)}
+                        placeholder="メール/招待者で検索"
+                        className="rounded-lg border border-[#cad9ea] px-3 py-2 text-sm"
+                      />
+                      <select
+                        value={inviteFilter}
+                        onChange={(event) => setInviteFilter(event.target.value as InviteListFilter)}
+                        className="rounded-lg border border-[#cad9ea] bg-white px-3 py-2 text-sm"
+                      >
+                        <option value="all">すべて</option>
+                        <option value="pending">保留中</option>
+                        <option value="accepted">承認済み</option>
+                        <option value="revoked">取り消し済み</option>
+                        <option value="expired">期限切れ</option>
+                      </select>
+                    </div>
+
                     {detailLoading ? (
                       <p className="mt-2 text-sm text-[#5d7898]">読み込み中...</p>
-                    ) : invites.length === 0 ? (
-                      <p className="mt-2 text-sm text-[#5d7898]">招待履歴はありません。</p>
+                    ) : filteredInvites.length === 0 ? (
+                      <p className="mt-2 text-sm text-[#5d7898]">表示できる招待はありません。</p>
                     ) : (
                       <ul className="mt-2 space-y-2">
-                        {invites.map((invite) => {
-                          const isPending = !invite.acceptedAt && !invite.revokedAt;
+                        {filteredInvites.map((invite) => {
+                          const status = resolveInviteStatus(invite);
+                          const isPending = status === "pending";
                           return (
                             <li key={invite.id} className="rounded-lg border border-[#d8e6f5] bg-[#fbfdff] px-3 py-2">
                               <p className="text-sm font-semibold text-[#17355f]">{invite.email}</p>
                               <p className="mt-0.5 text-xs text-[#52739a]">
                                 作成: {formatDateTime(invite.createdAt)} / 期限: {formatDateTime(invite.expiresAt)}
                               </p>
-                              <p className="mt-0.5 text-xs text-[#52739a]">
-                                状態: {invite.acceptedAt ? "承認済み" : invite.revokedAt ? "取消済み" : "保留中"}
+                              <p className="mt-0.5 flex items-center gap-2 text-xs text-[#52739a]">
+                                <span>状態:</span>
+                                <InviteStatusBadge status={status} />
                               </p>
                               {isPending && isOwner && (
-                                <button
-                                  type="button"
-                                  onClick={() => void handleRevokeInvite(invite.id)}
-                                  className="mt-2 rounded-md border border-[#efb7c0] bg-[#fff1f3] px-2 py-1 text-xs font-semibold text-[#9e2740]"
-                                >
-                                  招待を取り消す
-                                </button>
+                                <div className="mt-2 flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleResendInvite(invite.id)}
+                                    disabled={resendingInviteId === invite.id}
+                                    className="rounded-md border border-[#aac9e9] bg-[#edf6ff] px-2 py-1 text-xs font-semibold text-[#1f4f86] disabled:opacity-60"
+                                  >
+                                    {resendingInviteId === invite.id ? "再送中..." : "再送"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleRevokeInvite(invite.id)}
+                                    className="rounded-md border border-[#efb7c0] bg-[#fff1f3] px-2 py-1 text-xs font-semibold text-[#9e2740]"
+                                  >
+                                    取り消し
+                                  </button>
+                                </div>
                               )}
                             </li>
                           );
