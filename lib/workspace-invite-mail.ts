@@ -16,6 +16,11 @@ function env(name: string) {
   return process.env[name]?.trim() ?? "";
 }
 
+function parseEnvBool(value: string) {
+  const normalized = value.trim().replace(/^['"]|['"]$/g, "").toLowerCase();
+  return ["true", "1", "yes", "on", "enabled"].includes(normalized);
+}
+
 function resolveInviteExpiryHours() {
   const raw = env("WORKSPACE_INVITE_EXPIRES_HOURS");
   const num = Number(raw);
@@ -53,7 +58,7 @@ export async function sendWorkspaceInviteMail(
   input: SendWorkspaceInviteMailInput,
 ): Promise<SendWorkspaceInviteMailResult> {
   const sendEnabled = env("MAIL_SEND_ENABLED");
-  if (sendEnabled.toLowerCase() !== "true") {
+  if (!parseEnvBool(sendEnabled)) {
     return { status: "skipped", reason: "MAIL_SEND_ENABLED is not true" };
   }
 
