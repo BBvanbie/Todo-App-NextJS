@@ -1,42 +1,59 @@
-# Vercelデプロイ手順
+﻿# Vercel Deploy
 
-このプロジェクトはそのままVercelへデプロイできますが、本番動作には環境変数の設定が必須です。
+このプロジェクトを Vercel にデプロイする手順です。
 
-## 1) リポジトリを接続
-- Vercelダッシュボードを開く
-- `Add New...` -> `Project`
-- `BBvanbie/Todo-App-NextJS` をImport
-- Root Directory は `next-todos` を指定
-- Framework Preset は `Next.js`
+## 1. プロジェクト作成
+1. Vercel ダッシュボードを開く
+2. `Add New` -> `Project`
+3. GitHub リポジトリ `BBvanbie/Todo-App-NextJS` を選択
+4. Framework Preset は `Next.js` を選択
 
-## 2) 環境変数を設定
-Vercel Project Settings -> Environment Variables で以下を設定:
+## 2. 環境変数設定
+Vercel `Settings` -> `Environment Variables` で設定する。
 
-必須（現行アプリで使用）:
-- `DATABASE_URL`（NeonのPooled接続文字列）
-- `DIRECT_URL`（NeonのDirect接続文字列）
-
-通知機能に向けて事前準備:
+### 必須
+- `DATABASE_URL`
+- `DIRECT_URL`
+- `AUTH_SECRET`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
 - `CRON_SECRET`
+- `NEXT_PUBLIC_APP_URL`
+
+### メール送信（招待）
+- `MAIL_SEND_ENABLED=true`
+- `RESEND_API_KEY`
+- `MAIL_FROM`（例: `TaskHub Todo <noreply@taskhub.info>`）
+- `MAIL_REPLY_TO`（例: `support@taskhub.info`）
+- `WORKSPACE_INVITE_EXPIRES_HOURS=24`
+
+### 任意
 - `VAPID_PUBLIC_KEY`
 - `VAPID_PRIVATE_KEY`
 - `VAPID_SUBJECT`
 
-値は `.env.example` をひな形として入力してください。
+## 3. デプロイ
+1. `Deploy` を実行
+2. ビルド完了を確認
+3. 発行 URL にアクセスして動作確認
 
-## 3) デプロイ実行
-- `Deploy` をクリック
-- ビルド完了を待つ
-- 本番URL（例: `https://<project>.vercel.app`）が発行される
+## 4. 再デプロイが必要なケース
+- 環境変数を追加・変更したとき
+- メール送信元ドメインを変更したとき
+- 認証関連設定を変更したとき
 
-## 4) デプロイ後の確認
-- `/` が表示される
-- Todoの新規作成ができる
-- Todoの編集ができる
-- Todoの完了切替ができる
-- `/history` が表示される
+## 5. トラブルシュート
+- `MAIL_SEND_ENABLED is not true`
+  - `MAIL_SEND_ENABLED=true` が設定されているか確認
+  - 設定先環境（Production/Preview）が一致しているか確認
+  - 再デプロイ済みか確認
 
-## 5) よくある失敗
-- Root Directoryが誤っている（`next-todos` 必須）
-- `DATABASE_URL` / `DIRECT_URL` の未設定または誤り
-- Neon側の接続情報不一致
+- `You can only send testing emails...`
+  - Resend のドメイン認証が未完了
+  - `MAIL_FROM` が認証済みドメインと一致しているか確認
+
+- Build failed
+  - `npm run lint`
+  - `npx tsc --noEmit`
+  - `npm run build`
+  をローカルで通してから再デプロイ
