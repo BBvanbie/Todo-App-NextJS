@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { formatDate, toDateInputValue, toTimeInputValue, type Todo } from "@/app/_components/todos/model";
 
 type KpiKey = "total" | "pending" | "completed" | "dueSoon" | "overdue";
@@ -58,7 +58,7 @@ function getTitle(key: KpiKey) {
   return "期限切れタスク一覧";
 }
 
-export default function KpiSummaryPage() {
+function KpiSummaryPageContent() {
   const params = useParams<{ kpi: string }>();
   const searchParams = useSearchParams();
   const workspaceId = searchParams.get("ws");
@@ -133,5 +133,13 @@ export default function KpiSummaryPage() {
         </ul>
       )}
     </main>
+  );
+}
+
+export default function KpiSummaryPage() {
+  return (
+    <Suspense fallback={null}>
+      <KpiSummaryPageContent />
+    </Suspense>
   );
 }

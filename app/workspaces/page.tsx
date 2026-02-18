@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type WorkspaceRole = "OWNER" | "MEMBER";
@@ -44,7 +44,7 @@ function formatDateTime(value: string | null) {
   return date.toLocaleString("ja-JP");
 }
 
-export default function WorkspaceManagePage() {
+function WorkspaceManagePageContent() {
   const searchParams = useSearchParams();
   const initialWs = searchParams.get("ws");
 
@@ -418,5 +418,13 @@ export default function WorkspaceManagePage() {
         </p>
       )}
     </main>
+  );
+}
+
+export default function WorkspaceManagePage() {
+  return (
+    <Suspense fallback={null}>
+      <WorkspaceManagePageContent />
+    </Suspense>
   );
 }

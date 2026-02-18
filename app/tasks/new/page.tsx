@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { NewTaskForm } from "@/app/_components/new-task/NewTaskForm";
 import {
@@ -16,7 +16,7 @@ type CategoriesResponse = {
   builtinLabels?: Record<string, string>;
 };
 
-export default function NewTaskPage() {
+function NewTaskPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const workspaceId = searchParams.get("ws");
@@ -146,5 +146,13 @@ export default function NewTaskPage() {
       onAssigneeChange={setAssignee}
       onSubmit={handleSubmit}
     />
+  );
+}
+
+export default function NewTaskPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewTaskPageContent />
+    </Suspense>
   );
 }

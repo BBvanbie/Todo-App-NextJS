@@ -1,6 +1,6 @@
-const path = require("path");
-const dotenv = require("dotenv");
-const { Resend } = require("resend");
+import path from "node:path";
+import dotenv from "dotenv";
+import { Resend } from "resend";
 
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 
